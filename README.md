@@ -1,5 +1,5 @@
 
-# OpenSpiel: A Framework for Reinforcement Learning in Games
+# OpenSpiel: A Framework for Reinforcement Learning in Games (Extending for Dominion)
 
 [![Documentation Status](https://readthedocs.org/projects/openspiel/badge/?version=latest)](https://openspiel.readthedocs.io/en/latest/?badge=latest)
 ![build_and_test](https://github.com/deepmind/open_spiel/workflows/build_and_test/badge.svg)
