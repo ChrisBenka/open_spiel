@@ -15,43 +15,36 @@
 # Lint as python3
 """Tests for Python Dominion."""
 
-
 from absl.testing import absltest
 from open_spiel.python.games import dominion
 
-import pyspiel
 
 class DominionTest(absltest.TestCase):
- DEFAULT_PARAMS = {"num_players":2}
-  def test_can_create_and_state(self):
-    game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
-    state = game.new_initial_state()
-    self.assertIsNotNone(state)
-  def test_state_rep_returns_supply_piles_players_deck_hand_discard_trash_pile(self):
-    game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
-    state = game.new_initial_state()
-    self.assertIn('supply_piles',state)
-    self.assertIn('deck',state)
-    self.assertIn('discard',state)
-    self.assertIn('hand',state)
-    self.assertIn('trash',state)
-  
-  def test_each_player_starts_with_7coppers_3_estates_in_deck(self):
-    game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
-    state = game.new_initial_state()
-    self.assertIn('copper',state.deck)
-    self.assertIn('estate',state.deck)
-    self.assertEqual(state.deck.copper.qty,7)
-    self.assertEqual(state.deck.estate.qty,3)
+    DEFAULT_PARAMS = {"num_players": 2}
 
-  def test_each_player_starts_with_5_cards_in_hand(self):
-    game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
-    state = game.new_initial_state()
-    self.assertIn('copper',state.deck)
-    self.assertIn('estate',state.deck)
-    self.assertEqual(state.deck.copper.qty,7)
-    self.assertEqual(state.deck.estate.qty,3)
+    def test_can_create_and_state(self):
+        game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertIsNotNone(state)
 
+    def test_state_rep_returns_supply_draw_discard_trash_piles_and_hands(self):
+        game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertIsNotNone(state.draw_piles)
+        self.assertIsNotNone(state.discard_piles)
+        self.assertIsNotNone(state.hands)
+        self.assertIsNotNone(state.trash_piles)
+        self.assertIsNotNone(state.victory_points)
+
+    def test_each_player_starts_with_7coppers_3_estates_in_draw_piles(self):
+        game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertEqual(len(state.draw_piles), DominionTest.DEFAULT_PARAMS["num_players"])
+        self.assertEqual(len(state.victory_points), DominionTest.DEFAULT_PARAMS["num_players"])
+        self.assertEqual(len(state.hands), DominionTest.DEFAULT_PARAMS["num_players"])
+        for initial_draw_pile in state.draw_piles :
+            self.assertEqual(len(list(filter(lambda card: card.name == 'Copper',initial_draw_pile))),7)
+            self.assertEqual(len(list(filter(lambda card: card.name == 'Estate',initial_draw_pile))),3)
 
 if __name__ == "__main__":
- absltest.main()
+    absltest.main()
