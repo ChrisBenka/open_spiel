@@ -90,6 +90,8 @@ set(GAME_SOURCES
   mfg/crowd_modelling_2d.h
   mfg/garnet.cc
   mfg/garnet.h
+  morpion_solitaire.cc
+  morpion_solitaire.h
   negotiation.cc
   negotiation.h
   nfg_game.cc
@@ -136,6 +138,8 @@ set(GAME_SOURCES
   tiny_hanabi.h
   trade_comm.cc
   trade_comm.h
+  ultimate_tic_tac_toe.h
+  ultimate_tic_tac_toe.cc
   y.cc
   y.h
 )
@@ -387,6 +391,10 @@ add_executable(matrix_games_test matrix_games_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(matrix_games_test matrix_games_test)
 
+add_executable(morpion_solitaire_test morpion_solitaire_test.cc ${OPEN_SPIEL_OBJECTS}
+        $<TARGET_OBJECTS:tests>)
+add_test(morpion_solitaire_test morpion_solitaire_test)
+
 add_executable(negotiation_test negotiation_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>
                $<TARGET_OBJECTS:algorithms>)
@@ -477,6 +485,10 @@ add_test(tiny_hanabi_test tiny_hanabi_test)
 add_executable(trade_comm_test trade_comm_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(trade_comm_test trade_comm_test)
+
+add_executable(ultimate_tic_tac_toe_test ultimate_tic_tac_toe_test.cc
+               ${OPEN_SPIEL_OBJECTS} $<TARGET_OBJECTS:tests>)
+add_test(ultimate_tic_tac_toe_test ultimate_tic_tac_toe_test)
 
 if (${OPEN_SPIEL_BUILD_WITH_ACPC})
   add_executable(universal_poker_test universal_poker_test.cc ${OPEN_SPIEL_OBJECTS}
