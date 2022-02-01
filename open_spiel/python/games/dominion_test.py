@@ -15,6 +15,7 @@
 # Lint as python3
 """Tests for Python Dominion."""
 
+import numpy as np
 from absl.testing import absltest
 from open_spiel.python.games import dominion
 
@@ -43,18 +44,41 @@ class DominionTest(absltest.TestCase):
         self.assertEqual(len(state.victory_points), DominionTest.DEFAULT_PARAMS["num_players"])
         self.assertEqual(len(state.hands), DominionTest.DEFAULT_PARAMS["num_players"])
 
-        num_cards = lambda card_name,cards : len(list(filter(lambda card: card.name == card_name,cards)))
- 
-        for initial_draw_pile,initial_hand in zip(state.draw_piles,state.hands) :
-            self.assertEqual(num_cards('Copper',initial_draw_pile) + num_cards('Copper',initial_hand),7)
-            self.assertEqual(num_cards('Estate',initial_draw_pile) + num_cards('Estate',initial_hand),3)
-    
-    def test_each_player_draws_5_cards_from_draw_pile(self):
+        num_cards = lambda card_name, cards: len(list(filter(lambda card: card.name == card_name, cards)))
+
+        for initial_draw_pile in state.draw_piles:
+            self.assertEqual(num_cards('Copper', initial_draw_pile), 7)
+            self.assertEqual(num_cards('Estate', initial_draw_pile), 3)
+
+    def test_first_player_draws_5cards_from_discard_pile_to_start_game(self):
         game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
-        self.assertEqual(len(state.hands[state.current_player()]),dominion._HAND_SIZE)
-        self.assertEqual(len(state.draw_piles[state.current_player()]),dominion._DRAW_PILE_SIZE-dominion._HAND_SIZE)
+        assert(len(state.get_player(0).hand),dominion._HAND_SIZE)
 
+
+class DominionObserverTest(absltest.TestCase):
+    DEFAULT_PARAMS = {"num_players": 2}
+
+    def test_dominion_observation(self):
+        game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
+        observation = game.make_py_observer()
+        state = game.new_initial_state()
+
+        observation.set_from(state, player=0)
+
+        np.testing.assert_array_equal(observation.tensor,
+                                      [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 46, 40, 30, 10, 8, 8, 8, 0, 0, 1, 1, 0])
+
+        self.assertEqual(list(observation.dict),
+                         ["kingdom_piles", "treasure_piles", "victory_piles", "victory_points", "actions", "buys",
+                          "coins"])
+        np.testing.assert_array_equal(observation.dict["kingdom_piles"], [10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
+        np.testing.assert_array_equal(observation.dict["treasure_piles"], [46, 40, 30])
+        np.testing.assert_array_equal(observation.dict["victory_piles"], [10, 8, 8, 8])
+        np.testing.assert_array_equal(observation.dict["victory_points"], [0, 0])
+        np.testing.assert_array_equal(observation.dict["coins"], [0])
+        np.testing.assert_array_equal(observation.dict["buys"], [1])
+        np.testing.assert_array_equal(observation.dict["actions"], [1])
 
 
 if __name__ == "__main__":

@@ -16,14 +16,17 @@
 Hands are hidden 
 """
 
-import pyspiel
 import random
-from operator import itemgetter 
+from operator import itemgetter
+
+import numpy as np
+import pyspiel
 
 _MIN_PLAYERS = 2
 _MAX_PLAYERS = 4
 _HAND_SIZE = 5
 _DRAW_PILE_SIZE = 10
+_NUM_KINGDOM_SUPPLY_PILES = 10
 
 """ Default kingdom cards to be used for the game. """
 _PRESET_KINGDOM_CARDS = ['Village', 'Bureaucrat', 'Smithy', 'Witch', 'Militia', 'Moat', 'Library', 'Market', 'Mine',
@@ -89,13 +92,14 @@ class ActionCard(Card):
 
 
 class AttackCard(ActionCard):
-    def __init__(name: str, cost: int, add_cards: int, global_trigger: callable):
-        super(AttackCard, self).__init__(name=name, cost=cost, add_cards=add_cards)
+    def __init__(self, name: str, coins: int, cost: int, effect_list: list, add_cards: int, global_trigger: callable):
+        super(AttackCard, self).__init__(name=name, coins=coins, cost=cost, effect_list=effect_list,
+                                         add_cards=add_cards)
         self.global_trigger = global_trigger
 
 
 class ReactionCard(ActionCard):
-    def __init__(name: str, cost: int, add_cards: int, global_trigger: callable):
+    def __init__(self, name: str, cost: int, add_cards: int, global_trigger: callable):
         super(ReactionCard, self).__init__(name, cost, add_cards=add_cards)
         self.global_trigger = global_trigger
 
@@ -120,13 +124,13 @@ LABORATORY = ActionCard(name='Laboratory', cost=5, add_cards=2, add_actions=1),
 MARKET = ActionCard(name='Market', cost=5, add_actions=1, add_buys=1, coins=1, add_cards=1),
 FESTIVAL = ActionCard(name='Festival', cost=5, add_actions=2, add_buys=1, coins=2),
 SMITHY = ActionCard(name="Smithy", cost=4, add_cards=3),
-# MILITIA = AttackCard(name='Militia',cost=4,coins=2,effect_list=[]),
+MILITIA = AttackCard(name='Militia', cost=4, coins=2, effect_list=[], add_cards=0, global_trigger=None),
 GARDENS = VictoryCard(name='Gardens', cost=4, victory_points=0,
                       vp_fn=lambda all_cards: math.floor(len(all_cards) / 10)),
 CHAPEL = ActionCard(name='Chapel', cost=2, effect_list=[]),
-# WITCH = AttackCard(name='Witch',cost=5,add_cards=2,effect_list=[]),
+WITCH = AttackCard(name='Witch', cost=5, add_cards=2, effect_list=[], coins=0, global_trigger=None),
 WORKSHOP = ActionCard(name='Workshop', cost=3, effect_list=[]),
-# BANDIT = AttackCard(name='Bandit',cost=5,effect_list=[],effect_fn=None),
+BANDIT = AttackCard(name='Bandit', cost=5, effect_list=[], coins=0, add_cards=0, global_trigger=None),
 REMODEL = ActionCard(name='Remodel', cost=4, effect_list=[]),
 THRONE_ROOM = ActionCard(name='Throne Room', cost=4, effect_fn=None),
 MONEYLENDER = ActionCard(name='Moneylender', cost=4, effect_fn=None),
@@ -141,8 +145,7 @@ BUREAUCRAT = ActionCard(name='Bureaucrat', cost=4, effect_fn=None),
 SENTRY = ActionCard(name='Sentry', cost=5, add_cards=1, add_actions=1, effect_fn=None),
 HARBINGER = ActionCard(name='Harbinger', cost=3, add_cards=1, add_actions=1, effect_list=[]),
 LIBRARY = ActionCard(name='Library', cost=5, effect_fn=None),
-# MOAT = ReactionCard(name='Moat',cost=2,add_cards=2,global_trigger=None)
-
+MOAT = ReactionCard(name='Moat', cost=2, add_cards=2, global_trigger=None)
 
 INIT_KINGDOM_SUPPLY = {
     "Village": SupplyPile(VILLAGE, 10),
@@ -150,12 +153,12 @@ INIT_KINGDOM_SUPPLY = {
     "Market": SupplyPile(MARKET, 10),
     "Festival": SupplyPile(FESTIVAL, 10),
     "Smithy": SupplyPile(SMITHY, 10),
-    # "Militia": SupplyPile(MILITIA, 10),
+    "Militia": SupplyPile(MILITIA, 10),
     "Gardens": SupplyPile(GARDENS, 8),
     "Chapel": SupplyPile(CHAPEL, 10),
-    # "Witch": SupplyPile(WITCH, 10),
+    "Witch": SupplyPile(WITCH, 10),
     "Workshop": SupplyPile(WORKSHOP, 10),
-    # "Bandit": SupplyPile(BANDIT, 10),
+    "Bandit": SupplyPile(BANDIT, 10),
     "Remodel": SupplyPile(REMODEL, 10),
     "Throne Room": SupplyPile(THRONE_ROOM, 10),
     "Moneylender": SupplyPile(MONEYLENDER, 10),
@@ -170,7 +173,7 @@ INIT_KINGDOM_SUPPLY = {
     "Sentry": SupplyPile(SENTRY, 10),
     "Harbinger": SupplyPile(HARBINGER, 10),
     "Library": SupplyPile(LIBRARY, 10),
-    # "Moat": SupplyPile(MOAT, 10),
+    "Moat": SupplyPile(MOAT, 10),
 }
 
 COPPER = TreasureCard(name='Copper', cost=0, coins=1)
@@ -195,25 +198,26 @@ class TurnPhase(enumerate):
     BUY_PHASE = 3
     END_PHASE = 4
 
+
 class Player(object):
-    def __init__(self,id):
+    def __init__(self, id):
         self.id = id
-        self.victory_points = 0 
+        self.victory_points = 0
         self.draw_pile = [COPPER for _ in range(7)] + [ESTATE for _ in range(3)]
         self.discard_pile = []
         self.trash_pile = []
         self.hand = []
-        self.phase = TurnPhase.END_PHASE 
+        self.phase = TurnPhase.END_PHASE
         self.actions = 0
         self.buys = 0
         self.coins = 0
-    
-    def _draw_hand(self): 
+
+    def _draw_hand(self):
         """ draw a player's hand (5 cards) from their draw pile """
-        cards_drawn_idxs = set(random.sample(range(len(self.draw_pile)),_HAND_SIZE-len(self.hand)))
+        cards_drawn_idxs = set(random.sample(range(len(self.draw_pile)), _HAND_SIZE - len(self.hand)))
         self.hand = itemgetter(*cards_drawn_idxs)(self.draw_pile)
-        self.draw_pile = [card for idx,card in enumerate(self.draw_pile) if not idx in cards_drawn_idxs]
-    
+        self.draw_pile = [card for idx, card in enumerate(self.draw_pile) if not idx in cards_drawn_idxs]
+
     def init_turn(self):
         self.actions = 1
         self.buys = 1
@@ -221,12 +225,15 @@ class Player(object):
         self.phase = TurnPhase.ACTION_PHASE
         self._draw_hand()
 
+    def get_state(self):
+        return self.draw_pile, self.victory_points, self.hand, self.discard_pile, self.trash_pile
+
 
 class DominionGame(pyspiel.Game):
     """ A python version of Dominion."""
 
     def __init__(self, params=None):
-        _GAME_INFO = pyspiel.GameInfo(
+        self._GAME_INFO = pyspiel.GameInfo(
             num_distinct_actions=len(_PRESET_KINGDOM_CARDS) + len(_INIT_TREASURE_CARDS_SUPPLY) + len(
                 _INIT_VICTORY_CARDS_SUPPLY),
             max_chance_outcomes=0,
@@ -236,7 +243,7 @@ class DominionGame(pyspiel.Game):
             utility_sum=0,
             max_game_length=3
         )
-        super().__init__(_GAME_TYPE, _GAME_INFO, params or dict())
+        super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
 
     def get_game_info(self):
         return self._GAME_INFO
@@ -246,7 +253,7 @@ class DominionGame(pyspiel.Game):
         return DominionGameState(self)
 
     def make_py_observer(self, iig_obs_type=None, params=None):
-        pass
+        return DominionObserver(iig_obs_type, {"num_players": self.get_game_info().num_players})
 
 
 class DominionGameState(pyspiel.State):
@@ -258,23 +265,33 @@ class DominionGameState(pyspiel.State):
 
         self._players = [Player(id=i) for i in range(game.num_players())]
 
-        # state
+        '''
+        state
+        this info is also stored in each respective player
+        making data redundant to avoid need to loop through each player to get game state
+        '''
         self.draw_piles = [player.draw_pile for player in self._players]
         self.victory_points = [player.victory_points for player in self._players]
         self.hands = [player.hand for player in self._players]
         self.discard_piles = [player.discard_pile for player in self._players]
         self.trash_piles = [player.trash_pile for player in self._players]
+
         self.kingdom_piles = {key: INIT_KINGDOM_SUPPLY[key] for key in INIT_KINGDOM_SUPPLY if
                               key in _PRESET_KINGDOM_CARDS}
         self.treasure_piles = _INIT_TREASURE_CARDS_SUPPLY
         self.victory_piles = _INIT_VICTORY_CARDS_SUPPLY
         self._cur_player = 0
         self._is_terminal = False
-        
+
         self._start_game()
 
     def _start_game(self):
         self._players[self._cur_player].init_turn()
+
+    def _update_game_state_from_player(self):
+        player_id = self._cur_player
+        self.draw_piles[player_id], self.victory_points[player_id], self.hands[player_id], self.discard_piles[player_id]
+        self.trash_piles[player_id] = self._players[player_id].getState()
 
     def current_player(self):
         """Returns id of the next player to move, or TERMINAL if game is over."""
@@ -286,6 +303,12 @@ class DominionGameState(pyspiel.State):
             ACTION_PHASE: player actions in your card
         """
 
+    def get_player(self, id):
+        return self._players[id]
+
+    def get_players(self):
+        return self._players
+
     def __str____(self):
         """String for debug purposes. No particular semantics are required."""
         pass
@@ -293,21 +316,80 @@ class DominionGameState(pyspiel.State):
     def apply_action(self, action):
         pass
 
+    def move_to_next_player(self, action):
+        if not self._is_terminal:
+            self._cur_player = (self._curr_player + 1) % len(self._players)
+            self._players[self._cur_player].init_turn()
+        else:
+            raise Exception("Game is finished")
+
+
 class DominionObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
 
     def __init__(self, iig_obs_type, params):
         """Initializes an empty observation tensor."""
-        pass
+        num_kingdom_piles = _NUM_KINGDOM_SUPPLY_PILES
+        num_treasure_piles = len(_INIT_TREASURE_CARDS_SUPPLY.keys())
+        num_victory_piles = len(_INIT_VICTORY_CARDS_SUPPLY.keys())
+        num_unique_cards = num_kingdom_piles + num_treasure_piles + num_kingdom_piles
+        
+        # different components of observation
+        pieces = [
+            ("kingdom_piles", _NUM_KINGDOM_SUPPLY_PILES, (_NUM_KINGDOM_SUPPLY_PILES,)),
+            ("treasure_piles", num_treasure_piles, (num_treasure_piles,)),
+            ("victory_piles", num_victory_piles, (num_victory_piles)),
+            ("victory_points", params["num_players"], (params["num_players"],)),
+            ('actions', 1, (1,)),
+            ('buys', 1, (1,)),
+            ('coins', 1, (1,)),
+            # ('draw',num_unique_cards,(num_unique_cards,)),
+            # ('hand',num_unique_cards,(num_unique_cards,))
+            # ('discard',num_unique_cards,(num_unique_cards,)),
+            # ('trash',num_unique_cards,(num_unique_cards,))            
+        ]
 
+        # build the single flat tensor
+        total_size = sum(size for name, size, shape in pieces)
+        self.tensor = np.zeros(total_size, np.int32)
+
+        # build the named & reshaped view of the components of the flat tensor
+        self.dict = {}
+        idx = 0
+        for name, size, shape in pieces:
+            self.dict[name] = self.tensor[idx:idx + size].reshape(shape)
+            idx += size
 
     def set_from(self, state, player):
         """Updates `tensor` and `dict` to reflect `state` from PoV of `player`."""
-        pass
+        idx = 0
+        kingdom_piles = [pile.qty for pile in state.kingdom_piles.values()]
+        treasure_piles = [pile.qty for pile in state.treasure_piles.values()]
+        victory_piles = [pile.qty for pile in state.victory_piles.values()]
+        victory_points = [player.victory_points for player in state.get_players()]
 
+        values = [
+            ('kingdom_piles', kingdom_piles),
+            ('treasure_piles', treasure_piles),
+            ('victory_piles', victory_piles),
+            ('victory_points', state.victory_points),
+            ('actions', [state.get_player(player).actions]),
+            ('buys', [state.get_player(player).buys]),
+            ('coins', [state.get_player(player).coins]),
+            # ('draw',state.get_player(player).draw_pile),
+            # ('hand',state.get_player(player).hand),
+            # ('discard',state.get_player(player).discard_pile),
+            # ('trash',state.get_player(player).trash_pile)
+        ]
+
+        for name, value in values:
+            self.dict[name] = value
+            self.tensor[idx: idx + len(value)] = value
+            idx += len(value)
 
     def string_from(self, state, player):
         """Observation of `state` from the PoV of `player`, as a string."""
         pass
+
 
 pyspiel.register_game(_GAME_TYPE, DominionGame)
