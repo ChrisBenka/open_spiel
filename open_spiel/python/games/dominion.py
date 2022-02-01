@@ -17,9 +17,13 @@ Hands are hidden
 """
 
 import pyspiel
+import random
+from operator import itemgetter 
 
 _MIN_PLAYERS = 2
 _MAX_PLAYERS = 4
+_HAND_SIZE = 5
+_DRAW_PILE_SIZE = 10
 
 """ Default kingdom cards to be used for the game. """
 _PRESET_KINGDOM_CARDS = ['Village', 'Bureaucrat', 'Smithy', 'Witch', 'Militia', 'Moat', 'Library', 'Market', 'Mine',
@@ -27,6 +31,7 @@ _PRESET_KINGDOM_CARDS = ['Village', 'Bureaucrat', 'Smithy', 'Witch', 'Militia', 
 
 _DEFAULT_PARAMS = {
     'num_players': _MIN_PLAYERS,
+    'automate_action_phase': True
 }
 
 _GAME_TYPE = pyspiel.GameType(
@@ -190,6 +195,32 @@ class TurnPhase(enumerate):
     BUY_PHASE = 3
     END_PHASE = 4
 
+class Player(object):
+    def __init__(self,id):
+        self.id = id
+        self.victory_points = 0 
+        self.draw_pile = [COPPER for _ in range(7)] + [ESTATE for _ in range(3)]
+        self.discard_pile = []
+        self.trash_pile = []
+        self.hand = []
+        self.phase = TurnPhase.END_PHASE 
+        self.actions = 0
+        self.buys = 0
+        self.coins = 0
+    
+    def _draw_hand(self): 
+        """ draw a player's hand (5 cards) from their draw pile """
+        cards_drawn_idxs = set(random.sample(range(len(self.draw_pile)),_HAND_SIZE-len(self.hand)))
+        self.hand = itemgetter(*cards_drawn_idxs)(self.draw_pile)
+        self.draw_pile = [card for idx,card in enumerate(self.draw_pile) if not idx in cards_drawn_idxs]
+    
+    def init_turn(self):
+        self.actions = 1
+        self.buys = 1
+        self.coins = 0
+        self.phase = TurnPhase.ACTION_PHASE
+        self._draw_hand()
+
 
 class DominionGame(pyspiel.Game):
     """ A python version of Dominion."""
@@ -224,22 +255,26 @@ class DominionGameState(pyspiel.State):
     def __init__(self, game):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
-        self._cur_player = 0
-        self._is_terminal = False
+
+        self._players = [Player(id=i) for i in range(game.num_players())]
+
+        # state
+        self.draw_piles = [player.draw_pile for player in self._players]
+        self.victory_points = [player.victory_points for player in self._players]
+        self.hands = [player.hand for player in self._players]
+        self.discard_piles = [player.discard_pile for player in self._players]
+        self.trash_piles = [player.trash_pile for player in self._players]
         self.kingdom_piles = {key: INIT_KINGDOM_SUPPLY[key] for key in INIT_KINGDOM_SUPPLY if
                               key in _PRESET_KINGDOM_CARDS}
         self.treasure_piles = _INIT_TREASURE_CARDS_SUPPLY
         self.victory_piles = _INIT_VICTORY_CARDS_SUPPLY
-        self.draw_piles = [{} for player in range(game.num_players())]
-        self.victory_points = [0 for player in range(game.num_players())]
-        self.hands = [{} for player in range(game.num_players())]
-        self.discard_piles = [{} for player in range(game.num_players())]
-        self.trash_piles = [{} for player in range(game.num_players())]
-        self._deal_initial_cards(game.num_players())
+        self._cur_player = 0
+        self._is_terminal = False
+        
+        self._start_game()
 
-    def _deal_initial_cards(self, num_players):
-        for player in range(num_players):
-            self._deal_cards_to_player(player, [COPPER for _ in range(7)] + [ESTATE for _ in range(3)])
+    def _start_game(self):
+        self._players[self._cur_player].init_turn()
 
     def current_player(self):
         """Returns id of the next player to move, or TERMINAL if game is over."""
@@ -247,7 +282,7 @@ class DominionGameState(pyspiel.State):
 
     def _legal_actions(self, player):
         """ depending on turn phase
-        if TREASURE_PHASE: legal acttion is to 1. buy available cards based on player's coins 2. end treasure phase
+        if TREASURE_PHASE: legal action is to 1. buy available cards based on player's coins 2. end treasure phase
             ACTION_PHASE: player actions in your card
         """
 
@@ -258,16 +293,8 @@ class DominionGameState(pyspiel.State):
     def apply_action(self, action):
         pass
 
-    def _deal_cards_to_player(self, player, cards):
-        self.draw_piles[player] = cards
-
-    def _deal_card_to_player(self, player, card):
-        pass
-
-
 class DominionObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
-
 
     def __init__(self, iig_obs_type, params):
         """Initializes an empty observation tensor."""
@@ -284,10 +311,3 @@ class DominionObserver:
         pass
 
 pyspiel.register_game(_GAME_TYPE, DominionGame)
-
-if __name__ == "__main__":
-    games_list = pyspiel.registered_games()
-    game = pyspiel.load_game("python Dominion", {"num_players": 2})
-
-    state = game.new_initial_state()
-    observer = game.make_py_observer()

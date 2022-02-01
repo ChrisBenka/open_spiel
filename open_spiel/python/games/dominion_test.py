@@ -42,9 +42,20 @@ class DominionTest(absltest.TestCase):
         self.assertEqual(len(state.draw_piles), DominionTest.DEFAULT_PARAMS["num_players"])
         self.assertEqual(len(state.victory_points), DominionTest.DEFAULT_PARAMS["num_players"])
         self.assertEqual(len(state.hands), DominionTest.DEFAULT_PARAMS["num_players"])
-        for initial_draw_pile in state.draw_piles :
-            self.assertEqual(len(list(filter(lambda card: card.name == 'Copper',initial_draw_pile))),7)
-            self.assertEqual(len(list(filter(lambda card: card.name == 'Estate',initial_draw_pile))),3)
+
+        num_cards = lambda card_name,cards : len(list(filter(lambda card: card.name == card_name,cards)))
+ 
+        for initial_draw_pile,initial_hand in zip(state.draw_piles,state.hands) :
+            self.assertEqual(num_cards('Copper',initial_draw_pile) + num_cards('Copper',initial_hand),7)
+            self.assertEqual(num_cards('Estate',initial_draw_pile) + num_cards('Estate',initial_hand),3)
+    
+    def test_each_player_draws_5_cards_from_draw_pile(self):
+        game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertEqual(len(state.hands[state.current_player()]),dominion._HAND_SIZE)
+        self.assertEqual(len(state.draw_piles[state.current_player()]),dominion._DRAW_PILE_SIZE-dominion._HAND_SIZE)
+
+
 
 if __name__ == "__main__":
     absltest.main()
