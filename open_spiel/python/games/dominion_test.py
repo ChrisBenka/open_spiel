@@ -53,7 +53,7 @@ class DominionTest(absltest.TestCase):
     def test_first_player_draws_5cards_from_discard_pile_to_start_game(self):
         game = dominion.DominionGame(DominionTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
-        assert(len(state.get_player(0).hand),dominion._HAND_SIZE)
+        self.assertEqual(len(state.get_player(0).hand),dominion._HAND_SIZE)
 
 
 class DominionObserverTest(absltest.TestCase):
@@ -66,12 +66,12 @@ class DominionObserverTest(absltest.TestCase):
 
         observation.set_from(state, player=0)
 
-        np.testing.assert_array_equal(observation.tensor,
-                                      [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 46, 40, 30, 10, 8, 8, 8, 0, 0, 1, 1, 0])
-
         self.assertEqual(list(observation.dict),
                          ["kingdom_piles", "treasure_piles", "victory_piles", "victory_points", "actions", "buys",
-                          "coins"])
+                          "coins","draw","hand","discard","trash"])
+
+        np.testing.assert_equal(observation.tensor.shape,(90,))
+
         np.testing.assert_array_equal(observation.dict["kingdom_piles"], [10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
         np.testing.assert_array_equal(observation.dict["treasure_piles"], [46, 40, 30])
         np.testing.assert_array_equal(observation.dict["victory_piles"], [10, 8, 8, 8])
@@ -79,6 +79,23 @@ class DominionObserverTest(absltest.TestCase):
         np.testing.assert_array_equal(observation.dict["coins"], [0])
         np.testing.assert_array_equal(observation.dict["buys"], [1])
         np.testing.assert_array_equal(observation.dict["actions"], [1])
+
+        np.testing.assert_equal(len(observation.dict["draw"]),17)
+        np.testing.assert_equal(len(observation.dict["hand"]),17)
+        np.testing.assert_equal(len(observation.dict["discard"]),17)
+        np.testing.assert_equal(len(observation.dict["trash"]),17)
+
+        np.testing.assert_equal(np.sum(observation.dict["draw"])+np.sum(observation.dict["hand"]),10)
+        np.testing.assert_equal(np.sum(observation.dict["discard"]),0)
+        np.testing.assert_equal(np.sum(observation.dict["trash"]),0)
+        
+    def test_dominion_observation_str(self):
+        game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
+        observation = game.make_py_observer()
+        state = game.new_initial_state()
+
+        self.assertNotEmpty(observation.string_from(state, player=0))
+
 
 
 if __name__ == "__main__":

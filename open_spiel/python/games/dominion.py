@@ -31,6 +31,9 @@ _NUM_KINGDOM_SUPPLY_PILES = 10
 """ Default kingdom cards to be used for the game. """
 _PRESET_KINGDOM_CARDS = ['Village', 'Bureaucrat', 'Smithy', 'Witch', 'Militia', 'Moat', 'Library', 'Market', 'Mine',
                          'Council Room']
+                         
+_TREASURE_CARDS = ['Copper','Gold','Silver']
+_VICTORY_CARDS = ['Curse','Duchy','Estate','Province']
 
 _DEFAULT_PARAMS = {
     'num_players': _MIN_PLAYERS,
@@ -191,6 +194,12 @@ PROVINCE = VictoryCard(name='Province', cost=8, victory_points=8)
 _INIT_VICTORY_CARDS_SUPPLY = {'Curse': SupplyPile(CURSE, 10), 'Estate': SupplyPile(ESTATE, 8),
                               'Duchy': SupplyPile(DUCHY, 8), 'Province': SupplyPile(PROVINCE, 8)}
 
+NUM_KINGDOM_PILES = _NUM_KINGDOM_SUPPLY_PILES
+NUM_TREASURE_PILES = len(_INIT_TREASURE_CARDS_SUPPLY.keys())
+NUM_VICTORY_PILES = len(_INIT_VICTORY_CARDS_SUPPLY.keys())
+NUM_UNIQUE_CARDS = NUM_KINGDOM_PILES + NUM_TREASURE_PILES + NUM_VICTORY_PILES
+
+
 
 class TurnPhase(enumerate):
     ACTION_PHASE = 1
@@ -243,6 +252,9 @@ class DominionGame(pyspiel.Game):
             utility_sum=0,
             max_game_length=3
         )
+        self.kingdom_cards = _PRESET_KINGDOM_CARDS
+        self.treasure_cards = _TREASURE_CARDS
+        self.victory_cards = _VICTORY_CARDS
         super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
 
     def get_game_info(self):
@@ -328,25 +340,20 @@ class DominionObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
 
     def __init__(self, iig_obs_type, params):
-        """Initializes an empty observation tensor."""
-        num_kingdom_piles = _NUM_KINGDOM_SUPPLY_PILES
-        num_treasure_piles = len(_INIT_TREASURE_CARDS_SUPPLY.keys())
-        num_victory_piles = len(_INIT_VICTORY_CARDS_SUPPLY.keys())
-        num_unique_cards = num_kingdom_piles + num_treasure_piles + num_kingdom_piles
-        
+        """Initializes an empty observation tensor."""        
         # different components of observation
         pieces = [
             ("kingdom_piles", _NUM_KINGDOM_SUPPLY_PILES, (_NUM_KINGDOM_SUPPLY_PILES,)),
-            ("treasure_piles", num_treasure_piles, (num_treasure_piles,)),
-            ("victory_piles", num_victory_piles, (num_victory_piles)),
+            ("treasure_piles", NUM_TREASURE_PILES, (NUM_TREASURE_PILES,)),
+            ("victory_piles", NUM_VICTORY_PILES, (NUM_VICTORY_PILES,)),
             ("victory_points", params["num_players"], (params["num_players"],)),
             ('actions', 1, (1,)),
             ('buys', 1, (1,)),
             ('coins', 1, (1,)),
-            # ('draw',num_unique_cards,(num_unique_cards,)),
-            # ('hand',num_unique_cards,(num_unique_cards,))
-            # ('discard',num_unique_cards,(num_unique_cards,)),
-            # ('trash',num_unique_cards,(num_unique_cards,))            
+            ('draw',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,)),
+            ('hand',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,)),
+            ('discard',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,)),
+            ('trash',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,))            
         ]
 
         # build the single flat tensor
@@ -359,6 +366,17 @@ class DominionObserver:
         for name, size, shape in pieces:
             self.dict[name] = self.tensor[idx:idx + size].reshape(shape)
             idx += size
+    
+    def _count_cards(self,cards):
+        return np.unique(list(map(lambda card: card.name,cards)),return_counts=True)
+
+    def _num_all_cards(self,pile:list):
+        """kingdom_cards, treasure_cards, victory_cards """
+        num_cards = dict.fromkeys(_PRESET_KINGDOM_CARDS + _TREASURE_CARDS + _VICTORY_CARDS,0)
+        cards,nums = self._count_cards(pile)
+        for card,num in zip(cards,nums):
+            num_cards[card] = num
+        return list(num_cards.values())
 
     def set_from(self, state, player):
         """Updates `tensor` and `dict` to reflect `state` from PoV of `player`."""
@@ -368,6 +386,7 @@ class DominionObserver:
         victory_piles = [pile.qty for pile in state.victory_piles.values()]
         victory_points = [player.victory_points for player in state.get_players()]
 
+        
         values = [
             ('kingdom_piles', kingdom_piles),
             ('treasure_piles', treasure_piles),
@@ -376,10 +395,10 @@ class DominionObserver:
             ('actions', [state.get_player(player).actions]),
             ('buys', [state.get_player(player).buys]),
             ('coins', [state.get_player(player).coins]),
-            # ('draw',state.get_player(player).draw_pile),
-            # ('hand',state.get_player(player).hand),
-            # ('discard',state.get_player(player).discard_pile),
-            # ('trash',state.get_player(player).trash_pile)
+            ('draw',self._num_all_cards(state.get_player(player).draw_pile)),
+            ('hand',self._num_all_cards(state.get_player(player).hand)),
+            ('discard',self._num_all_cards(state.get_player(player).discard_pile)),
+            ('trash',self._num_all_cards(state.get_player(player).trash_pile))
         ]
 
         for name, value in values:
@@ -387,9 +406,40 @@ class DominionObserver:
             self.tensor[idx: idx + len(value)] = value
             idx += len(value)
 
+    def _string_count_cards(self,cards):
+        unique_cards,num_unique = self._count_cards(cards)
+        return ", ".join([f"{card}: {qty}" for card,qty in  zip(unique_cards,num_unique)])
+
     def string_from(self, state, player):
         """Observation of `state` from the PoV of `player`, as a string."""
-        pass
+        pieces = []
+        pieces.append(f"p{player}: ")
+        kingdom_supply_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.kingdom_piles.items()])
+        treasure_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.treasure_piles.items()])
+        victory_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.victory_piles.items()])
+        victory_points = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
+        action = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
+        buys = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
+        coins = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
 
+        
+
+        pieces.append(f"kingdom supply piles: {kingdom_supply_piles}")
+        pieces.append(f"treasure supply piles: {treasure_piles}")
+        pieces.append(f"victory supply piles: {victory_piles}")
+        pieces.append(f"victory points: {victory_points}")
+        pieces.append(f"actions: {state.get_player(player).actions}")
+        pieces.append(f"buys: {state.get_player(player).buys}")
+        pieces.append(f"coin: {state.get_player(player).coins}")
+        draw_pile = self._string_count_cards(state.get_player(player).draw_pile)
+        pieces.append(f"draw pile: {draw_pile if len(draw_pile) > 0 else 'empty'}")
+        hand = self._string_count_cards(state.get_player(player).hand)
+        pieces.append(f"hand: {hand if len(hand) > 0 else 'empty'}")
+        discard_pile = self._string_count_cards(state.get_player(player).discard_pile)
+        pieces.append(f"discard pile: {discard_pile if len(discard_pile) > 0 else 'empty'}")
+        trash_pile = self._string_count_cards(state.get_player(player).trash_pile)
+        pieces.append(f"trash pile: {trash_pile if len(trash_pile) > 0 else 'empty'}")
+
+        return "\n".join(str(p) for p in pieces)
 
 pyspiel.register_game(_GAME_TYPE, DominionGame)
