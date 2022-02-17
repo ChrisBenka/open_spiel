@@ -186,7 +186,7 @@ END_PHASE_ACTION = NUM_UNIQUE_CARDS
 _PRESET_KINGDOM_CARDS = [MOAT,VILLAGE,BUREAUCRAT,SMITHY,MILITIA,WITCH,LIBRARY,MARKET,MINE,COUNCIL_ROOM]
 _PRESET_KINGDOM_CARDS_NAMES = list(map(lambda card: card.name, _PRESET_KINGDOM_CARDS))
 
-_TREASURE_CARDS = [COPPER,GOLD,SILVER]
+_TREASURE_CARDS = [COPPER,SILVER,GOLD]
 _TREASURE_CARDS_NAMES = list(map(lambda card: card.name, _TREASURE_CARDS))
 
 _VICTORY_CARDS = [CURSE,ESTATE,DUCHY,PROVINCE]
@@ -235,6 +235,11 @@ class Player(object):
     def play_card_from_hand(self,card: Card):
         self.coins += card.coins or 0
         self.hand.remove(card)
+
+    def buy_card(self, card: Card):
+        self.draw_pile.append(card)
+        self.coins -= card.cost
+        self.buys -= 1
  
 
     def init_turn(self):
@@ -315,13 +320,13 @@ class DominionGameState(pyspiel.State):
         self.treasure_piles = _INIT_TREASURE_CARDS_SUPPLY
         self.victory_piles = _INIT_VICTORY_CARDS_SUPPLY
         self._all_supply_piles = list(self.treasure_piles.values()) + list(self.victory_piles.values()) + list(self.kingdom_piles.values())
-        self._cur_player = 0
+        self._curr_player = 0
         self._is_terminal = False
 
         self._start_game()
 
     def _start_game(self):
-        self._players[self._cur_player].init_turn()
+        self._players[self._curr_player].init_turn()
     
     def is_terminal(self):
         no_provinces_left = self.victory_piles[PROVINCE.name].qty is 0
@@ -330,15 +335,15 @@ class DominionGameState(pyspiel.State):
         return self._is_terminal
 
     def _update_game_state_from_player(self):
-        player_id = self._cur_player
+        player_id = self._curr_player
         self.draw_piles[player_id], self.victory_points[player_id], self.hands[player_id], self.discard_piles[player_id]
         self.trash_piles[player_id] = self._players[player_id].getState()
 
     def current_player(self):
         """Returns id of the next player to move, or TERMINAL if game is over."""
-        return pyspiel.PlayerId.TERMINAL if self._is_terminal else self._cur_player
+        return pyspiel.PlayerId.TERMINAL if self._is_terminal else self._curr_player
 
-    def _legal_actions(self, player_id: int) -> list:
+    def legal_actions(self, player_id: int) -> list:
         """ treasure_cards, victory_cards, kindom_cards"""
         player = self.get_player(player_id)
         if player.phase is TurnPhase.TREASURE_PHASE:
@@ -374,36 +379,54 @@ class DominionGameState(pyspiel.State):
     def play_treasure_card(self,card: TreasureCard):
         player = self.get_player(self.current_player())
         player.play_card_from_hand(card)
-        self.treasure_piles[card.name].qty -= 1
         all_treasure_cards_played = len(list(filter(lambda card: card.name in _TREASURE_CARDS_NAMES,player.hand))) == 0
         if all_treasure_cards_played:
-            player.end_phase()
+            self.play_end_phase()
+    
+    def play_buy_card(self,card: Card):
+        player = self.get_player(self.current_player())
+        if player.buys is 0:
+            raise Exception(f"Player {player.id} does not have any buys")
+        else:
+            if isinstance(card,TreasureCard):
+                self.treasure_piles[card.name].qty -= 1
+            elif isinstance(card,VictoryCard):
+                self.victory_piles[card.name].qty -= 1
+            else:
+                self.kingdom_piles[card.name].qty -= 1
+        player.buy_card(card)
+        if player.buys is 0:
+            self.play_end_phase()
 
     def play_end_phase(self):
         uptd_phase = self.get_player(self.current_player()).end_phase()
         if uptd_phase is TurnPhase.END_TURN:
-            self.player.end_turn()
+            self.get_player(self._curr_player).end_turn()
             self.move_to_next_player()
   
     def apply_action(self, action):
         if self.is_terminal():
             raise Exception("Game is finished")
-        player = self._cur_player
-        legal_actions = self._legal_actions(player)
+        player = self._curr_player
+        legal_actions = self.legal_actions(player)
         if action not in legal_actions:
             action_str = lambda action: f"{action}:{self._action_to_string(player,action)}"
             legal_actions_str = ", ".join(list(map(action_str,legal_actions)))
             raise Exception(f"Action {action_str(action)} not in list of legal actions - {legal_actions_str}")
         else:
-            if action is not END_PHASE_ACTION:
-                self.play_treasure_card(self._all_supply_piles[action].card)
-            else:
+            if action is  END_PHASE_ACTION:
                 self.play_end_phase()
+            else:
+                player = self.get_player(self.current_player())
+                if player.phase is TurnPhase.TREASURE_PHASE:
+                    self.play_treasure_card(self._all_supply_piles[action].card)
+                else:
+                    self.play_buy_card(self._all_supply_piles[action].card)
             
     def move_to_next_player(self):
         if not self.is_terminal():
-            self._cur_player = (self._curr_player + 1) % len(self._players)
-            self._players[self._cur_player].init_turn()
+            self._curr_player = (self._curr_player + 1) % len(self._players)
+            self._players[self._curr_player].init_turn()
         else:
             raise Exception("Game is finished")
 

@@ -87,7 +87,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         observation = game.make_py_observer()
         state = game.new_initial_state()
-        actions = state._legal_actions(0)
+        actions = state.legal_actions(0)
         # initial hand will contain at least 1 copper, so expected legal actions
         # are copper and end_phase
         copper_action = 0
@@ -106,7 +106,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         player.coins = 3
         player.phase = dominion.TurnPhase.BUY_PHASE
 
-        actions = state._legal_actions(0)
+        actions = state.legal_actions(0)
         #copper, silver, curse, estate, village, Moat, END_PHASE
         valid_actions = [0, 1, 3, 4, 7, 16, 17]
         self.assertEqual(actions,[0, 1, 3, 4, 7, 16, 17])
@@ -180,7 +180,26 @@ class DominionPlayerTurnTest(absltest.TestCase):
 
 
     def test_canPlay_BuyPhase(self):
-        pass
+        #play all coppers in hand and buy a silver card
+        game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+        num_coppers = len(list(filter(lambda card: card.name is 'Copper',curr_player.hand)))
+        play_copper = 0 
+        buy_silver = 1 
+        for _ in range(num_coppers):
+            state.apply_action(play_copper)
+
+        state.apply_action(buy_silver)
+        silver = dominion.SILVER.name
+        self.assertIn(silver,list(map(lambda card: card.name, curr_player.draw_pile)))
+        self.assertEqual(state.treasure_piles[silver].qty,39)
+        self.assertEqual(state.get_player(0).buys,0)
+        self.assertEqual(state.get_player(0).coins,num_coppers-dominion.SILVER.cost)
+        self.assertEqual(state.get_player(0).phase,dominion.TurnPhase.END_TURN)
+        #if player has no more buys then game moves on to next player
+        self.assertEqual(state.current_player(),1)
+
 
 class DominionObserverTest(absltest.TestCase):
     DEFAULT_PARAMS = {"num_players": 2}
