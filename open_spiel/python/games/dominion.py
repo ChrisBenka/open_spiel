@@ -14,6 +14,7 @@
 
 import random
 from operator import itemgetter
+
 import numpy as np
 import pyspiel
 
@@ -22,7 +23,6 @@ _MAX_PLAYERS = 4
 _HAND_SIZE = 5
 _DRAW_PILE_SIZE = 10
 _NUM_KINGDOM_SUPPLY_PILES = 10
-
 
 _DEFAULT_PARAMS = {
     'num_players': _MIN_PLAYERS,
@@ -52,18 +52,22 @@ class Card(object):
     def __init__(self, name: str, cost: int):
         self.name = name
         self.cost = cost
-    def __eq__(self,other):
+
+    def __eq__(self, other):
         return self.name == other.name
-  
+
+
 class VictoryCard(Card):
     def __init__(self, name: str, cost: int, victory_points: int, vp_fn: callable = None):
         super(VictoryCard, self).__init__(name, cost)
         self.victory_points = victory_points
 
+
 class TreasureCard(Card):
     def __init__(self, name: str, cost: int, coins: int):
         super(TreasureCard, self).__init__(name, cost)
         self.coins = coins
+
 
 class ActionCard(Card):
     def __init__(self, name: str, cost: int, add_actions: int = 0, add_buys: int = 0, add_cards: int = 0,
@@ -77,23 +81,28 @@ class ActionCard(Card):
         self.effect_fn = effect_fn
         self.coins = coins
 
+
 class AttackCard(ActionCard):
     def __init__(self, name: str, coins: int, cost: int, effect_list: list, add_cards: int, global_trigger: callable):
         super(AttackCard, self).__init__(name=name, coins=coins, cost=cost, effect_list=effect_list,
                                          add_cards=add_cards)
         self.global_trigger = global_trigger
 
+
 class ReactionCard(ActionCard):
     def __init__(self, name: str, cost: int, add_cards: int, global_trigger: callable):
         super(ReactionCard, self).__init__(name, cost, add_cards=add_cards)
         self.global_trigger = global_trigger
+
     def __str__(self):
         return str(self.card)
+
 
 class SupplyPile:
     def __init__(self, card, qty):
         self.card = card
         self.qty = qty
+
 
 """ KINGDOM CARDS """
 VILLAGE = ActionCard(name='Village', cost=3, add_actions=2, add_cards=1)
@@ -102,7 +111,7 @@ MARKET = ActionCard(name='Market', cost=5, add_actions=1, add_buys=1, coins=1, a
 FESTIVAL = ActionCard(name='Festival', cost=5, add_actions=2, add_buys=1, coins=2)
 SMITHY = ActionCard(name="Smithy", cost=4, add_cards=3)
 MILITIA = AttackCard(name='Militia', cost=4, coins=2, effect_list=[], add_cards=0, global_trigger=None)
-GARDENS = VictoryCard(name='Gardens', cost=4, victory_points=0,vp_fn=lambda all_cards: math.floor(len(all_cards) / 10))
+GARDENS = VictoryCard(name='Gardens', cost=4, victory_points=0, vp_fn=lambda all_cards: math.floor(len(all_cards) / 10))
 CHAPEL = ActionCard(name='Chapel', cost=2, effect_list=[])
 WITCH = AttackCard(name='Witch', cost=5, add_cards=2, effect_list=[], coins=0, global_trigger=None)
 WORKSHOP = ActionCard(name='Workshop', cost=3, effect_list=[])
@@ -128,7 +137,7 @@ COPPER = TreasureCard(name='Copper', cost=0, coins=1)
 SILVER = TreasureCard(name='Silver', cost=3, coins=2)
 GOLD = TreasureCard(name='Gold', cost=6, coins=3)
 
-""" VICTORY CARDS """ 
+""" VICTORY CARDS """
 CURSE = VictoryCard(name='Curse', cost=0, victory_points=-1)
 DUCHY = VictoryCard(name='Duchy', cost=4, victory_points=5)
 ESTATE = VictoryCard(name='Estate', cost=2, victory_points=1)
@@ -163,15 +172,15 @@ _INIT_KINGDOM_SUPPLY = {
     "Moat": SupplyPile(MOAT, 10),
 }
 _INIT_TREASURE_CARDS_SUPPLY = {
-    'Copper': SupplyPile(COPPER, 46), 
+    'Copper': SupplyPile(COPPER, 46),
     'Silver': SupplyPile(SILVER, 40),
     'Gold': SupplyPile(GOLD, 30)
 }
 
 _INIT_VICTORY_CARDS_SUPPLY = {
-    'Curse': SupplyPile(CURSE, 10), 
-    'Estate': SupplyPile(ESTATE, 8),                          
-    'Duchy': SupplyPile(DUCHY, 8), 
+    'Curse': SupplyPile(CURSE, 10),
+    'Estate': SupplyPile(ESTATE, 8),
+    'Duchy': SupplyPile(DUCHY, 8),
     'Province': SupplyPile(PROVINCE, 8)
 }
 
@@ -182,14 +191,13 @@ NUM_UNIQUE_CARDS = NUM_KINGDOM_PILES + NUM_TREASURE_PILES + NUM_VICTORY_PILES
 
 END_PHASE_ACTION = NUM_UNIQUE_CARDS
 
-  
-_PRESET_KINGDOM_CARDS = [MOAT,VILLAGE,BUREAUCRAT,SMITHY,MILITIA,WITCH,LIBRARY,MARKET,MINE,COUNCIL_ROOM]
+_PRESET_KINGDOM_CARDS = [MOAT, VILLAGE, BUREAUCRAT, SMITHY, MILITIA, WITCH, LIBRARY, MARKET, MINE, COUNCIL_ROOM]
 _PRESET_KINGDOM_CARDS_NAMES = list(map(lambda card: card.name, _PRESET_KINGDOM_CARDS))
 
-_TREASURE_CARDS = [COPPER,SILVER,GOLD]
+_TREASURE_CARDS = [COPPER, SILVER, GOLD]
 _TREASURE_CARDS_NAMES = list(map(lambda card: card.name, _TREASURE_CARDS))
 
-_VICTORY_CARDS = [CURSE,ESTATE,DUCHY,PROVINCE]
+_VICTORY_CARDS = [CURSE, ESTATE, DUCHY, PROVINCE]
 _VICTORY_CARDS_NAMES = list(map(lambda card: card.name, _VICTORY_CARDS))
 
 
@@ -199,20 +207,10 @@ class TurnPhase(enumerate):
     BUY_PHASE = 3
     END_TURN = 4
 
-class Move(object):
-    """
-    An Move is an Action that a player can take.
-
-    Must implement do(game_state), which is called when the player selects that Move.
-    """
-    def do(self, state):
-        raise Exception("Move does not implement do.")
-
-
 class Player(object):
     def __init__(self, id):
         self.id = id
-        self.victory_points = 0
+        self.victory_points = 3
         self.draw_pile = [COPPER for _ in range(7)] + [ESTATE for _ in range(3)]
         self.discard_pile = []
         self.trash_pile = []
@@ -231,8 +229,8 @@ class Player(object):
         cards_drawn_idxs = set(random.sample(range(len(self.draw_pile)), _HAND_SIZE - len(self.hand)))
         self.hand = list(itemgetter(*cards_drawn_idxs)(self.draw_pile))
         self.draw_pile = [card for idx, card in enumerate(self.draw_pile) if not idx in cards_drawn_idxs]
-    
-    def play_card_from_hand(self,card: Card):
+
+    def play_card_from_hand(self, card: Card):
         self.coins += card.coins or 0
         self.hand.remove(card)
 
@@ -240,16 +238,17 @@ class Player(object):
         self.draw_pile.append(card)
         self.coins -= card.cost
         self.buys -= 1
- 
+        if isinstance(card, VictoryCard):
+            self.victory_points += card.victory_points
 
     def init_turn(self):
         self._draw_hand()
-        num_action_cards = len(list(filter(lambda card: type(Card) == 'ActionCard',self.hand)))
-        self.actions = 1 if num_action_cards > 0 else 0 
+        num_action_cards = len(list(filter(lambda card: type(Card) == 'ActionCard', self.hand)))
+        self.actions = 1 if num_action_cards > 0 else 0
         self.buys = 1
         self.coins = 0
         self.phase = TurnPhase.ACTION_PHASE if num_action_cards > 0 else TurnPhase.TREASURE_PHASE
-    
+
     def end_phase(self):
         if self.phase is TurnPhase.ACTION_PHASE:
             self.phase = TurnPhase.TREASURE_PHASE
@@ -280,9 +279,6 @@ class DominionGame(pyspiel.Game):
             utility_sum=0,
             max_game_length=3
         )
-        # self.kingdom_cards = _PRESET_KINGDOM_CARDS
-        # self.treasure_cards = _TREASURE_CARDS
-        # self.victory_cards = _VICTORY_CARDS
         super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
 
     def get_game_info(self):
@@ -319,7 +315,8 @@ class DominionGameState(pyspiel.State):
                               key in _PRESET_KINGDOM_CARDS_NAMES}
         self.treasure_piles = _INIT_TREASURE_CARDS_SUPPLY
         self.victory_piles = _INIT_VICTORY_CARDS_SUPPLY
-        self._all_supply_piles = list(self.treasure_piles.values()) + list(self.victory_piles.values()) + list(self.kingdom_piles.values())
+        self._all_supply_piles = list(self.treasure_piles.values()) + list(self.victory_piles.values()) + list(
+            self.kingdom_piles.values())
         self._curr_player = 0
         self._is_terminal = False
 
@@ -327,10 +324,10 @@ class DominionGameState(pyspiel.State):
 
     def _start_game(self):
         self._players[self._curr_player].init_turn()
-    
+
     def is_terminal(self):
         no_provinces_left = self.victory_piles[PROVINCE.name].qty is 0
-        three_piles_empty = len(list(filter(lambda supply: supply.qty is 0,self._all_supply_piles))) is 3
+        three_piles_empty = len(list(filter(lambda supply: supply.qty is 0, self._all_supply_piles))) is 3
         self._is_terminal = no_provinces_left or three_piles_empty
         return self._is_terminal
 
@@ -348,23 +345,25 @@ class DominionGameState(pyspiel.State):
         player = self.get_player(player_id)
         if player.phase is TurnPhase.TREASURE_PHASE:
             """ player can play their treasure cards in exchange for coins and end current phase"""
-            unique_cards_in_hand = set(map(lambda card: card.name,player.hand))
-            return [idx for idx,treasure_card in enumerate(_TREASURE_CARDS_NAMES) if treasure_card in unique_cards_in_hand] + [END_PHASE_ACTION]
+            unique_cards_in_hand = set(map(lambda card: card.name, player.hand))
+            return [idx for idx, treasure_card in enumerate(_TREASURE_CARDS_NAMES) if
+                    treasure_card in unique_cards_in_hand] + [END_PHASE_ACTION]
         elif player.phase is TurnPhase.BUY_PHASE:
-            """ player can buy any card whose buy value is less than or equal to player's coins and card supply > 0; end current phase""" 
-            is_valid_card_to_buy = lambda supply_tuple : supply_tuple[1].qty > 0 and supply_tuple[1].card.cost <= player.coins
+            """ player can buy any card whose buy value is less than or equal to player's coins and card supply > 0; end current phase"""
+            is_valid_card_to_buy = lambda supply_tuple: supply_tuple[1].qty > 0 and supply_tuple[
+                1].card.cost <= player.coins
             get_idx = lambda supply_tuple: supply_tuple[0]
-            all_valid_cards = list(map(get_idx,filter(is_valid_card_to_buy,enumerate(self._all_supply_piles))))
+            all_valid_cards = list(map(get_idx, filter(is_valid_card_to_buy, enumerate(self._all_supply_piles))))
             return all_valid_cards + [END_PHASE_ACTION]
         elif player.phase is TurnPhase.ACTION_PHASE:
             return []
 
-    def _action_to_string(self,player,action) -> str:
+    def _action_to_string(self, player, action) -> str:
         """Action -> string."""
         if action is END_PHASE_ACTION:
             return "End phase"
         phase = "Buy and Gain" if self.get_player(player).phase is TurnPhase.BUY_PHASE else "Play"
-        return "{} {}".format(phase,self._all_supply_piles[action].card.name)
+        return "{} {}".format(phase, self._all_supply_piles[action].card.name)
 
     def get_player(self, id):
         return self._players[id]
@@ -376,21 +375,21 @@ class DominionGameState(pyspiel.State):
         """String for debug purposes. No particular semantics are required."""
         pass
 
-    def play_treasure_card(self,card: TreasureCard):
+    def play_treasure_card(self, card: TreasureCard):
         player = self.get_player(self.current_player())
         player.play_card_from_hand(card)
-        all_treasure_cards_played = len(list(filter(lambda card: card.name in _TREASURE_CARDS_NAMES,player.hand))) == 0
+        all_treasure_cards_played = len(list(filter(lambda card: card.name in _TREASURE_CARDS_NAMES, player.hand))) == 0
         if all_treasure_cards_played:
             self.play_end_phase()
-    
-    def play_buy_card(self,card: Card):
+
+    def play_buy_card(self, card: Card):
         player = self.get_player(self.current_player())
         if player.buys is 0:
             raise Exception(f"Player {player.id} does not have any buys")
         else:
-            if isinstance(card,TreasureCard):
+            if isinstance(card, TreasureCard):
                 self.treasure_piles[card.name].qty -= 1
-            elif isinstance(card,VictoryCard):
+            elif isinstance(card, VictoryCard):
                 self.victory_piles[card.name].qty -= 1
             else:
                 self.kingdom_piles[card.name].qty -= 1
@@ -403,18 +402,18 @@ class DominionGameState(pyspiel.State):
         if uptd_phase is TurnPhase.END_TURN:
             self.get_player(self._curr_player).end_turn()
             self.move_to_next_player()
-  
+
     def apply_action(self, action):
         if self.is_terminal():
             raise Exception("Game is finished")
         player = self._curr_player
         legal_actions = self.legal_actions(player)
         if action not in legal_actions:
-            action_str = lambda action: f"{action}:{self._action_to_string(player,action)}"
-            legal_actions_str = ", ".join(list(map(action_str,legal_actions)))
+            action_str = lambda action: f"{action}:{self._action_to_string(player, action)}"
+            legal_actions_str = ", ".join(list(map(action_str, legal_actions)))
             raise Exception(f"Action {action_str(action)} not in list of legal actions - {legal_actions_str}")
         else:
-            if action is  END_PHASE_ACTION:
+            if action is END_PHASE_ACTION:
                 self.play_end_phase()
             else:
                 player = self.get_player(self.current_player())
@@ -422,7 +421,7 @@ class DominionGameState(pyspiel.State):
                     self.play_treasure_card(self._all_supply_piles[action].card)
                 else:
                     self.play_buy_card(self._all_supply_piles[action].card)
-            
+
     def move_to_next_player(self):
         if not self.is_terminal():
             self._curr_player = (self._curr_player + 1) % len(self._players)
@@ -435,21 +434,21 @@ class DominionObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
 
     def __init__(self, iig_obs_type, params):
-        """Initializes an empty observation tensor."""        
+        """Initializes an empty observation tensor."""
         # different components of observation
         pieces = [
             ("kingdom_piles", _NUM_KINGDOM_SUPPLY_PILES, (_NUM_KINGDOM_SUPPLY_PILES,)),
             ("treasure_piles", NUM_TREASURE_PILES, (NUM_TREASURE_PILES,)),
             ("victory_piles", NUM_VICTORY_PILES, (NUM_VICTORY_PILES,)),
             ("victory_points", params["num_players"], (params["num_players"],)),
-            ('TurnPhase',1,(1,)),
+            ('TurnPhase', 1, (1,)),
             ('actions', 1, (1,)),
             ('buys', 1, (1,)),
             ('coins', 1, (1,)),
-            ('draw',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,)),
-            ('hand',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,)),
-            ('discard',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,)),
-            ('trash',NUM_UNIQUE_CARDS,(NUM_UNIQUE_CARDS,))            
+            ('draw', NUM_UNIQUE_CARDS, (NUM_UNIQUE_CARDS,)),
+            ('hand', NUM_UNIQUE_CARDS, (NUM_UNIQUE_CARDS,)),
+            ('discard', NUM_UNIQUE_CARDS, (NUM_UNIQUE_CARDS,)),
+            ('trash', NUM_UNIQUE_CARDS, (NUM_UNIQUE_CARDS,))
         ]
 
         # build the single flat tensor
@@ -462,15 +461,15 @@ class DominionObserver:
         for name, size, shape in pieces:
             self.dict[name] = self.tensor[idx:idx + size].reshape(shape)
             idx += size
-    
-    def _count_cards(self,cards):
-        return np.unique(list(map(lambda card: card.name,cards)),return_counts=True)
 
-    def _num_all_cards(self,pile:list):
+    def _count_cards(self, cards):
+        return np.unique(list(map(lambda card: card.name, cards)), return_counts=True)
+
+    def _num_all_cards(self, pile: list):
         """treasure_cards,victory_cards,kingdom_cards"""
-        num_cards = dict.fromkeys(_TREASURE_CARDS_NAMES+_VICTORY_CARDS_NAMES+_PRESET_KINGDOM_CARDS_NAMES,0)
-        cards,nums = self._count_cards(pile)
-        for card,num in zip(cards,nums):
+        num_cards = dict.fromkeys(_TREASURE_CARDS_NAMES + _VICTORY_CARDS_NAMES + _PRESET_KINGDOM_CARDS_NAMES, 0)
+        cards, nums = self._count_cards(pile)
+        for card, num in zip(cards, nums):
             num_cards[card] = num
         return list(num_cards.values())
 
@@ -482,20 +481,19 @@ class DominionObserver:
         victory_piles = [pile.qty for pile in state.victory_piles.values()]
         victory_points = [player.victory_points for player in state.get_players()]
 
-        
         values = [
             ('kingdom_piles', kingdom_piles),
             ('treasure_piles', treasure_piles),
             ('victory_piles', victory_piles),
             ('victory_points', state.victory_points),
-            ('TurnPhase',[state.get_player(player).phase]),
+            ('TurnPhase', [state.get_player(player).phase]),
             ('actions', [state.get_player(player).actions]),
             ('buys', [state.get_player(player).buys]),
             ('coins', [state.get_player(player).coins]),
-            ('draw',self._num_all_cards(state.get_player(player).draw_pile)),
-            ('hand',self._num_all_cards(state.get_player(player).hand)),
-            ('discard',self._num_all_cards(state.get_player(player).discard_pile)),
-            ('trash',self._num_all_cards(state.get_player(player).trash_pile))
+            ('draw', self._num_all_cards(state.get_player(player).draw_pile)),
+            ('hand', self._num_all_cards(state.get_player(player).hand)),
+            ('discard', self._num_all_cards(state.get_player(player).discard_pile)),
+            ('trash', self._num_all_cards(state.get_player(player).trash_pile))
         ]
 
         for name, value in values:
@@ -503,9 +501,9 @@ class DominionObserver:
             self.tensor[idx: idx + len(value)] = value
             idx += len(value)
 
-    def _string_count_cards(self,cards):
-        unique_cards,num_unique = self._count_cards(cards)
-        return ", ".join([f"{card}: {qty}" for card,qty in  zip(unique_cards,num_unique)])
+    def _string_count_cards(self, cards):
+        unique_cards, num_unique = self._count_cards(cards)
+        return ", ".join([f"{card}: {qty}" for card, qty in zip(unique_cards, num_unique)])
 
     def string_from(self, state, player):
         """Observation of `state` from the PoV of `player`, as a string."""
@@ -514,12 +512,10 @@ class DominionObserver:
         kingdom_supply_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.kingdom_piles.items()])
         treasure_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.treasure_piles.items()])
         victory_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.victory_piles.items()])
-        victory_points = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
-        action = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
-        buys = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
-        coins = ", ".join([f"p{player}: {vp}" for player,vp in enumerate(state.victory_points)])
-
-        
+        victory_points = ", ".join([f"p{player}: {vp}" for player, vp in enumerate(state.victory_points)])
+        action = ", ".join([f"p{player}: {vp}" for player, vp in enumerate(state.victory_points)])
+        buys = ", ".join([f"p{player}: {vp}" for player, vp in enumerate(state.victory_points)])
+        coins = ", ".join([f"p{player}: {vp}" for player, vp in enumerate(state.victory_points)])
 
         pieces.append(f"kingdom supply piles: {kingdom_supply_piles}")
         pieces.append(f"treasure supply piles: {treasure_piles}")
@@ -539,6 +535,7 @@ class DominionObserver:
         pieces.append(f"trash pile: {trash_pile if len(trash_pile) > 0 else 'empty'}")
 
         return "\n".join(str(p) for p in pieces)
+
 
 # Register the game with the OpenSpiel library
 pyspiel.register_game(_GAME_TYPE, DominionGame)
