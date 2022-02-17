@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Hands are hidden 
-"""
-
 import random
 from operator import itemgetter
 import numpy as np
@@ -34,8 +30,8 @@ _DEFAULT_PARAMS = {
 }
 
 _GAME_TYPE = pyspiel.GameType(
-    short_name="python Dominion",
-    long_name="python Dominion",
+    short_name="python_dominion",
+    long_name="Python Dominion",
     dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
     chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
     information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
@@ -56,7 +52,9 @@ class Card(object):
     def __init__(self, name: str, cost: int):
         self.name = name
         self.cost = cost
-
+    def __eq__(self,other):
+        return self.name == other.name
+  
 class VictoryCard(Card):
     def __init__(self, name: str, cost: int, victory_points: int, vp_fn: callable = None):
         super(VictoryCard, self).__init__(name, cost)
@@ -199,7 +197,16 @@ class TurnPhase(enumerate):
     ACTION_PHASE = 1
     TREASURE_PHASE = 2
     BUY_PHASE = 3
-    END_PHASE = 4
+    END_TURN = 4
+
+class Move(object):
+    """
+    An Move is an Action that a player can take.
+
+    Must implement do(game_state), which is called when the player selects that Move.
+    """
+    def do(self, state):
+        raise Exception("Move does not implement do.")
 
 
 class Player(object):
@@ -210,7 +217,7 @@ class Player(object):
         self.discard_pile = []
         self.trash_pile = []
         self.hand = []
-        self.phase = TurnPhase.END_PHASE
+        self.phase = TurnPhase.END_TURN
         self.actions = 0
         self.buys = 0
         self.coins = 0
@@ -222,8 +229,13 @@ class Player(object):
         shuffle discard pile to form new draw pile
         """
         cards_drawn_idxs = set(random.sample(range(len(self.draw_pile)), _HAND_SIZE - len(self.hand)))
-        self.hand = itemgetter(*cards_drawn_idxs)(self.draw_pile)
+        self.hand = list(itemgetter(*cards_drawn_idxs)(self.draw_pile))
         self.draw_pile = [card for idx, card in enumerate(self.draw_pile) if not idx in cards_drawn_idxs]
+    
+    def play_card_from_hand(self,card: Card):
+        self.coins += card.coins or 0
+        self.hand.remove(card)
+ 
 
     def init_turn(self):
         self._draw_hand()
@@ -232,6 +244,19 @@ class Player(object):
         self.buys = 1
         self.coins = 0
         self.phase = TurnPhase.ACTION_PHASE if num_action_cards > 0 else TurnPhase.TREASURE_PHASE
+    
+    def end_phase(self):
+        if self.phase is TurnPhase.ACTION_PHASE:
+            self.phase = TurnPhase.TREASURE_PHASE
+        elif self.phase is TurnPhase.TREASURE_PHASE:
+            self.phase = TurnPhase.BUY_PHASE
+        elif self.phase is TurnPhase.BUY_PHASE:
+            self.phase = TurnPhase.END_TURN
+        return self.phase
+
+    def end_turn(self):
+        # cleanup-phase
+        pass
 
     def get_state(self):
         return self.draw_pile, self.victory_points, self.hand, self.discard_pile, self.trash_pile
@@ -299,6 +324,9 @@ class DominionGameState(pyspiel.State):
         self._players[self._cur_player].init_turn()
     
     def is_terminal(self):
+        no_provinces_left = self.victory_piles[PROVINCE.name].qty is 0
+        three_piles_empty = len(list(filter(lambda supply: supply.qty is 0,self._all_supply_piles))) is 3
+        self._is_terminal = no_provinces_left or three_piles_empty
         return self._is_terminal
 
     def _update_game_state_from_player(self):
@@ -311,15 +339,14 @@ class DominionGameState(pyspiel.State):
         return pyspiel.PlayerId.TERMINAL if self._is_terminal else self._cur_player
 
     def _legal_actions(self, player_id: int) -> list:
-        """ 
-        """
+        """ treasure_cards, victory_cards, kindom_cards"""
         player = self.get_player(player_id)
         if player.phase is TurnPhase.TREASURE_PHASE:
             """ player can play their treasure cards in exchange for coins and end current phase"""
             unique_cards_in_hand = set(map(lambda card: card.name,player.hand))
             return [idx for idx,treasure_card in enumerate(_TREASURE_CARDS_NAMES) if treasure_card in unique_cards_in_hand] + [END_PHASE_ACTION]
         elif player.phase is TurnPhase.BUY_PHASE:
-            """ player can buy any card whose buy value is less than or equal to player's coins, card supply > 0, and end current phase""" 
+            """ player can buy any card whose buy value is less than or equal to player's coins and card supply > 0; end current phase""" 
             is_valid_card_to_buy = lambda supply_tuple : supply_tuple[1].qty > 0 and supply_tuple[1].card.cost <= player.coins
             get_idx = lambda supply_tuple: supply_tuple[0]
             all_valid_cards = list(map(get_idx,filter(is_valid_card_to_buy,enumerate(self._all_supply_piles))))
@@ -329,10 +356,12 @@ class DominionGameState(pyspiel.State):
 
     def _action_to_string(self,player,action) -> str:
         """Action -> string."""
+        if action is END_PHASE_ACTION:
+            return "End phase"
         phase = "Buy and Gain" if self.get_player(player).phase is TurnPhase.BUY_PHASE else "Play"
         return "{} {}".format(phase,self._all_supply_piles[action].card.name)
 
-    def get_player(self, id) -> Player:
+    def get_player(self, id):
         return self._players[id]
 
     def get_players(self) -> list:
@@ -342,17 +371,37 @@ class DominionGameState(pyspiel.State):
         """String for debug purposes. No particular semantics are required."""
         pass
 
+    def play_treasure_card(self,card: TreasureCard):
+        player = self.get_player(self.current_player())
+        player.play_card_from_hand(card)
+        self.treasure_piles[card.name].qty -= 1
+        all_treasure_cards_played = len(list(filter(lambda card: card.name in _TREASURE_CARDS_NAMES,player.hand))) == 0
+        if all_treasure_cards_played:
+            player.end_phase()
+
+    def play_end_phase(self):
+        uptd_phase = self.get_player(self.current_player()).end_phase()
+        if uptd_phase is TurnPhase.END_TURN:
+            self.player.end_turn()
+            self.move_to_next_player()
+  
     def apply_action(self, action):
-        player = self.get_player(self.current_player)
-        
-        if action is END_PHASE_ACTION:
-            # move to next stage 
-            player.hand
-
-
-
-    def move_to_next_player(self, action):
-        if not self._is_terminal:
+        if self.is_terminal():
+            raise Exception("Game is finished")
+        player = self._cur_player
+        legal_actions = self._legal_actions(player)
+        if action not in legal_actions:
+            action_str = lambda action: f"{action}:{self._action_to_string(player,action)}"
+            legal_actions_str = ", ".join(list(map(action_str,legal_actions)))
+            raise Exception(f"Action {action_str(action)} not in list of legal actions - {legal_actions_str}")
+        else:
+            if action is not END_PHASE_ACTION:
+                self.play_treasure_card(self._all_supply_piles[action].card)
+            else:
+                self.play_end_phase()
+            
+    def move_to_next_player(self):
+        if not self.is_terminal():
             self._cur_player = (self._curr_player + 1) % len(self._players)
             self._players[self._cur_player].init_turn()
         else:
@@ -468,4 +517,5 @@ class DominionObserver:
 
         return "\n".join(str(p) for p in pieces)
 
+# Register the game with the OpenSpiel library
 pyspiel.register_game(_GAME_TYPE, DominionGame)
