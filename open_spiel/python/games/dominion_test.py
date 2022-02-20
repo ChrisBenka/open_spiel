@@ -87,6 +87,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         observation = game.make_py_observer()
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         actions = state.legal_actions()
         # initial hand will contain at least 1 copper, so expected legal actions
         # are copper and end_phase
@@ -100,6 +101,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         observation = game.make_py_observer()
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
 
         # mocking BUY PHASE and coins
         player = state.get_player(0)
@@ -115,7 +117,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         observation = game.make_py_observer()
         state = game.new_initial_state()
-
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         self.assertEqual(state.action_to_string(0), "Play Copper")
 
         player = state.get_player(0)
@@ -138,8 +140,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
     def test_ApplyAction_ExceptionRaised_WhenActionNotLegal(self):
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
-
-        # illegal action, player is not dealt silver initially
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         play_silver = 1
         try:
             state.apply_action(play_silver)
@@ -149,7 +150,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
     def test_canPlay_TreasurePhase_AutoEnd(self):
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         initial_state = game.new_initial_state()
-
+        initial_state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         # play all coppers in hand
         curr_player = initial_state.get_player(initial_state.current_player())
         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
@@ -167,6 +168,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         # #play all coppers in hand - 1 + END_PHASE
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         curr_player = state.get_player(state.current_player())
         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
 
@@ -182,6 +184,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         # play all coppers in hand and buy a silver card
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         curr_player = state.get_player(state.current_player())
         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
         play_copper = 0
@@ -202,6 +205,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         # play all coppers in hand and buy a victory card
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         curr_player = state.get_player(state.current_player())
         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
         play_copper = 0
@@ -223,6 +227,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         # play all coppers in hand and buy a kingdom_card
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         curr_player = state.get_player(state.current_player())
         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
         play_copper = 0
@@ -243,6 +248,7 @@ class DominionPlayerTurnTest(absltest.TestCase):
         """ player's draw pile has 5 cards no need to merge discard pile """ 
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         curr_player = state.get_player(state.current_player())
         curr_player.end_turn()
 
@@ -260,9 +266,9 @@ class DominionPlayerTurnTest(absltest.TestCase):
         """ Playing village adds 1 card, 2 actions """ 
         game = dominion.DominionGame(DominionObserverTest.DEFAULT_PARAMS)
         state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
         curr_player = state.get_player(state.current_player())
         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
-        #play coppers 
         for _ in range(num_coppers):
             state.apply_action(0)
         #buy Village
@@ -270,12 +276,12 @@ class DominionPlayerTurnTest(absltest.TestCase):
         #next player skips buy phase and moves back to first player
         state.apply_action(17)
         #back to inital player ; play village
+        state.load_hand(['Village'])
         state.apply_action(7)
-
         self.assertEqual(state.get_player(0).actions,2)
-        self.assertEqual(state.current_player(), 1)        
-
-
+        #player wil not have any action cards left, move on to TREASURE_PHASE
+        self.assertEqual(state.get_player(0).phase,dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(len(state.get_player(0).hand),5)
 
 class DominionObserverTest(absltest.TestCase):
     DEFAULT_PARAMS = {"num_players": 2}

@@ -222,14 +222,17 @@ class Player(object):
         self.trash_pile = []
         self.hand = []
         self.phase = TurnPhase.END_TURN
-        self.actions = 0
-        self.buys = 0
+        self.actions = 1
+        self.buys = 1
         self.coins = 0
 
         random.shuffle(self.draw_pile)
 
     def _draw_hand(self,num_cards: int = _HAND_SIZE):
-        self.hand = self.draw_pile[0:num_cards]
+        if len(self.hand) is 0:
+            self.hand = self.draw_pile[0:num_cards]
+        else:
+            self.hand += self.draw_pile[0:num_cards]
         self.draw_pile = self.draw_pile[num_cards:len(self.draw_pile)]
 
     def play_treasure_card_from_hand(self, card: Card):
@@ -255,15 +258,31 @@ class Player(object):
         self.buys -= 1
         if isinstance(card, VictoryCard):
             self.victory_points += card.victory_points
+    
+    def load_hand(self,cards):
+        # loads a particular hand ; useful for testing + offline RL
+        self.draw_pile += self.hand
+        self.hand.clear()
+        #ensure each card specified appears in player's draw pile
+        for card in cards:
+            if card not in self.draw_pile:
+                raise Exception(f"{card.name} was not found in p{self.id}'s draw_pile")
+            else:
+                self.hand.append(card)
+                self.draw_pile.remove(card)
+        #draw additional cards if neccessary to form a complete hand
+        if len(self.hand) < _HAND_SIZE:
+            self._draw_hand(_HAND_SIZE-len(self.hand))
 
     def init_turn(self):
         if len(self.hand) is 0:
             self._draw_hand()
-        num_action_cards = len(list(filter(lambda card: type(Card) == 'ActionCard', self.hand)))
-        self.actions = 1
-        self.buys = 1
-        self.coins = 0
-        self.phase = TurnPhase.ACTION_PHASE if num_action_cards > 0 else TurnPhase.TREASURE_PHASE
+        self.phase = TurnPhase.ACTION_PHASE if self.has_action_cards() else TurnPhase.TREASURE_PHASE
+    
+    def re_init_turn(self,cards):
+        self.load_hand(cards)
+        self.phase = TurnPhase.ACTION_PHASE if self.has_action_cards() else TurnPhase.TREASURE_PHASE
+    
 
     def end_phase(self):
         if self.phase is TurnPhase.ACTION_PHASE:
@@ -284,6 +303,9 @@ class Player(object):
         random.shuffle(self.discard_pile)
         self.draw_pile += self.discard_pile
         self.discard_pile.clear()
+
+    def has_action_cards(self):
+        return next((card for card in self.hand if isinstance(card,ActionCard)), None) is not None
 
     def end_turn(self):
         '''
@@ -362,6 +384,9 @@ class DominionGameState(pyspiel.State):
         self._curr_player = 0
         self._is_terminal = False
 
+        self._all_cards = {}
+        for supply in self._all_supply_piles:
+            self._all_cards[supply.card.name] = supply.card
         self._start_game()
 
     def _start_game(self):
@@ -462,9 +487,9 @@ class DominionGameState(pyspiel.State):
     def play_action_card(self, card: ActionCard):
         player = self.get_player(self.current_player())
         if player.actions is 0:
-            raise Exception(f"Player {player.id} does not have any buys")
+            raise Exception(f"Player {player.id} does not have any actions")
         player.play_action_card_from_hand(card)
-        if player.actions is 0:
+        if player.actions is 0  or not player.has_action_cards():
             self.play_end_phase()
 
     def play_end_phase(self):
@@ -500,6 +525,14 @@ class DominionGameState(pyspiel.State):
             self._players[self._curr_player].init_turn()
         else:
             raise Exception("Game is finished")
+    
+    def load_hand(self,card_names):
+        if len (card_names) > _HAND_SIZE:
+            raise Exception("List of cards to load into playe's hand must be <= 5")
+        if len(self.get_player(self.current_player()).hand) is not _HAND_SIZE:
+            raise Exception("load hand can only be called at start of player's turn")
+        cards = [self._all_cards[name] for name in card_names]
+        self.get_player(self.current_player()).re_init_turn(cards)
 
 
 class DominionObserver:
