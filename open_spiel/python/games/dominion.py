@@ -112,7 +112,6 @@ class Effect:
     def run(self, state, player):
         raise Exception("Effect does not implement run!")
 
-
 class DiscardDownToEffect(Effect):
     """
     Discard down to some number of cards in player's hand. Example: Militia.
@@ -122,34 +121,24 @@ class DiscardDownToEffect(Effect):
         self.num_cards_downto = num_cards_downto
 
     def __str__(self):
-        return "Discard"
+        return f"Discard {self.num_cards_downto}"
+    
+    def __eq__(self,other):
+        return self.num_cards_downto == other.num_cards_downto
 
     def legal_actions(self, state, player):
-        # is_valid_card_to_discard = lambda supply_tuple: supply_tuple[1].card in player.hand
-        # get_idx = lambda supply_tuple: supply_tuple[0]
-        # discardable_cards = list(map(get_idx, filter(is_valid_card_to_buy, enumerate(self._all_supply_piles))))
-        return []
+        is_valid_card_to_discard = lambda card: card in player.hand
+        discardable_cards = list(map(lambda card: card.id,filter(is_valid_to_discard,_ALL_CARDS)))
+        return discardable_cards
 
-    def run(self, state, player):
-        pass
+    def apply_action(self, state, action):
+        card = _ALL_CARDS[action]        
+        player = state.get_player(state._curr_player)
+        player.hand.remove(card)
+        player.discard_pile.add(card)
+        if len(player.hand) is self.num_cards_downto:
+            state.effect_runner[player.id] = None
 
-
-"""
-actions: are the ids of the card: treasure ; victory ; kingdom 
-1 2 3; 4 5 6 7 ; 8 9 10 ... 33 action ids
-kingdom_piles: dict of supply piles by name
-victory_piles: dict of supply piles by name
-treasure_pils: dict of supply piles by name
-all_supply_piles: dict of all supply piles by name
-
-state: 
-    kingdom_piles: dict of supply piles by name: [10,10,10,....10]
-    victory_piles: dict of supply piles by name
-    treasure_pils: dict of supply piles by name
-    all_supply_piles: dict of all supply piles by name    
-
-
-"""
 
 
 class OpponentsDiscardDownToEffect(Effect):
@@ -157,13 +146,13 @@ class OpponentsDiscardDownToEffect(Effect):
         self.num_cards_downto = num_cards_downto
 
     def run(self, state, player):
+        state.effect_runner.initiator = player.id
         effect = DiscardDownToEffect(self.num_cards_downto)
         for player in state.other_players(player):
-            state._effects[player.id] = effect
+            state.effect_runner.add_effect(player,effect)
 
 
 """ KINGDOM CARDS """
-
 VILLAGE = ActionCard(id=8, name='Village', cost=3, add_actions=2, add_cards=1)
 LABORATORY = ActionCard(id=9, name='Laboratory', cost=5, add_cards=2, add_actions=1)
 FESTIVAL = ActionCard(id=10, name='Festival', cost=5, add_actions=2, add_buys=1, coins=2)
@@ -250,8 +239,6 @@ _INIT_VICTORY_CARDS_SUPPLY = {
 NUM_KINGDOM_PILES = _NUM_KINGDOM_SUPPLY_PILES
 NUM_TREASURE_PILES = len(_INIT_TREASURE_CARDS_SUPPLY.keys())
 NUM_VICTORY_PILES = len(_INIT_VICTORY_CARDS_SUPPLY.keys())
-NUM_UNIQUE_CARDS = NUM_KINGDOM_PILES + NUM_TREASURE_PILES + NUM_VICTORY_PILES
-
 END_PHASE_ACTION = 34
 
 _TREASURE_CARDS = [COPPER, SILVER, GOLD]
@@ -265,7 +252,6 @@ _ALL_CARDS = [COPPER, SILVER, GOLD, CURSE, DUCHY, ESTATE, PROVINCE, VILLAGE, LAB
              CELLAR, MINE, VASSAL, COUNCIL_ROOM, ARTISAN, BUREAUCRAT, SENTRY, HARBINGER, LIBRARY, MOAT]
 _CARD_DICT = dict((card.id, card) for card in _ALL_CARDS)
 _ALL_KINGDOM_CARDS = [card for card in _ALL_CARDS if card.name in _INIT_KINGDOM_SUPPLY.keys()]
-
 
 
 class TurnPhase(enumerate):
@@ -284,12 +270,16 @@ class Player(object):
         self.trash_pile = []
         self.cards_in_play = []
         self.hand = []
-        self.phase = TurnPhase.END_TURN
+        self.phase = TurnPhase.TREASURE_PHASE
         self.actions = 1
         self.buys = 1
         self.coins = 0
 
         random.shuffle(self.draw_pile)
+        self._draw_hand()
+    
+    def __eq__(self,other):
+        return self.id == other.id
 
     def _draw_hand(self, num_cards: int = _HAND_SIZE):
         if len(self.hand) is 0:
@@ -312,6 +302,7 @@ class Player(object):
         if card.add_cards:
             self._draw_hand(card.add_cards)
         for effect in card.effect_list:
+            # pass
             effect.run(state, self)
         if card.effect_fn:
             pass
@@ -347,10 +338,6 @@ class Player(object):
         if len(self.hand) < _HAND_SIZE:
             self._draw_hand(_HAND_SIZE - len(self.hand))
 
-    def init_turn(self):
-        if len(self.hand) is 0:
-            self._draw_hand()
-        self.phase = TurnPhase.ACTION_PHASE if self.has_action_cards else TurnPhase.TREASURE_PHASE
 
     def re_init_turn(self, cards):
         self.load_hand(cards)
@@ -399,6 +386,8 @@ class Player(object):
         self.actions = 1
         self.coins = 0
         self.buys = 1
+        self.phase = TurnPhase.ACTION_PHASE if self.has_action_cards else TurnPhase.TREASURE_PHASE
+
 
 
 class DominionGame(pyspiel.Game):
@@ -406,7 +395,7 @@ class DominionGame(pyspiel.Game):
 
     def __init__(self, params=None):
         self._GAME_INFO = pyspiel.GameInfo(
-            num_distinct_actions=NUM_UNIQUE_CARDS,
+            num_distinct_actions=len(_ALL_CARDS + [END_PHASE_ACTION]),
             max_chance_outcomes=0,
             num_players=params["num_players"],
             min_utility=-1.0,
@@ -431,6 +420,32 @@ class DominionGame(pyspiel.Game):
                                                "kingdom_cards": self.get_parameters()['kingdom_cards'].split(", ")})
 
 
+class EffectRunner:
+    def __init__(self,num_players):
+        self.effects = [None] * num_players
+        self.initiator = None
+    
+    @property 
+    def active(self):
+        return len([effect for effect in self.effects if effect is not None]) is not 0
+
+    @property
+    def active_player(self):
+        for i,effect in enumerate(self.effects):
+            if effect is not None:
+                return i
+        return self.initiator
+    
+    def legal_actions(self,state,player):
+        return self.effects[player.id].legal_actions(state,player)
+
+    def add_effect(self,player,effect: Effect):
+        self.effects[player] = effect
+
+    def apply_action(self,state,action):
+        self.effects[self.active_player].apply_action(state,action)
+        return active_player
+
 class DominionGameState(pyspiel.State):
     """ a python version of the Dominon state."""
 
@@ -453,14 +468,11 @@ class DominionGameState(pyspiel.State):
         self._all_supply_piles.update(self.treasure_piles)
         self._all_supply_piles.update(self.victory_piles)
 
-        self._start_game()
+        self.effect_runner = EffectRunner(game.num_players())
     
     @property
     def victory_points(self):
         return list(map(lambda p: p.victory_points,self._players))
-
-    def _start_game(self):
-        self._players[self._curr_player].init_turn()
 
     def is_terminal(self):
         no_provinces_left = self.victory_piles[PROVINCE.name].qty is 0
@@ -470,6 +482,8 @@ class DominionGameState(pyspiel.State):
 
     def current_player(self):
         """Returns id of the next player to move, or TERMINAL if game is over."""
+        if self.effect_runner.active:
+            self._curr_player = self.effect_runner.active_player
         return pyspiel.PlayerId.TERMINAL if self._is_terminal else self._curr_player
 
     def legal_actions(self):
@@ -477,7 +491,9 @@ class DominionGameState(pyspiel.State):
 
     def _legal_actions(self, player_id: int) -> list:
         player = self.get_player(player_id)
-        if player.phase is TurnPhase.TREASURE_PHASE:
+        if self.effect_runner.active:
+            return self.effect_runner.legal_actions(state,player)
+        elif player.phase is TurnPhase.TREASURE_PHASE:
             return self.legal_treasure_cards(player)
         elif player.phase is TurnPhase.BUY_PHASE:
             return self.legal_cards_to_buy(player)
@@ -524,7 +540,7 @@ class DominionGameState(pyspiel.State):
         return self._players
 
     def other_players(self, player):
-        return list(filter(lambda p: p is not player, self._players))
+        return [p.id for p in self._players if p is not player]
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
@@ -544,7 +560,7 @@ class DominionGameState(pyspiel.State):
         player.play_treasure_card_from_hand(card)
         all_treasure_cards_played = len(list(filter(lambda card: isinstance(card, TreasureCard), player.hand))) == 0
         if all_treasure_cards_played:
-            self.play_end_phase()
+            self.play_end_phase(player)
 
     def play_buy_card(self, card: Card):
         player = self.get_player(self.current_player())
@@ -554,7 +570,7 @@ class DominionGameState(pyspiel.State):
             self._all_supply_piles[card.name].qty -= 1
         player.buy_card(card)
         if player.buys is 0:
-            self.play_end_phase()
+            self.play_end_phase(player)
 
     def play_action_card(self, card: ActionCard):
         player = self.get_player(self.current_player())
@@ -562,12 +578,12 @@ class DominionGameState(pyspiel.State):
             raise Exception(f"Player {player.id} does not have any actions")
         player.play_action_card_from_hand(self, card)
         if player.actions is 0 or not player.has_action_cards:
-            self.play_end_phase()
+            self.play_end_phase(player)
 
-    def play_end_phase(self):
-        uptd_phase = self.get_player(self.current_player()).end_phase()
+    def play_end_phase(self,player):
+        uptd_phase = player.end_phase()
         if uptd_phase is TurnPhase.END_TURN:
-            self.get_player(self._curr_player).end_turn()
+            player.end_turn()
             self.move_to_next_player()
 
     def apply_action(self, action):
@@ -580,8 +596,10 @@ class DominionGameState(pyspiel.State):
             legal_actions_str = ", ".join(list(map(action_str, legal_actions)))
             raise Exception(f"Action {action_str(action)} not in list of legal actions - {legal_actions_str}")
         else:
-            if action is END_PHASE_ACTION:
-                self.play_end_phase()
+            if self.effect_runner.active:
+               self._curr_player = self.effect_runner.apply_action(self,action)
+            elif action is END_PHASE_ACTION:
+                self.play_end_phase(self.get_player(player))
             else:
                 player = self.get_player(self.current_player())
                 if player.phase is TurnPhase.TREASURE_PHASE:
@@ -594,7 +612,6 @@ class DominionGameState(pyspiel.State):
     def move_to_next_player(self):
         if not self.is_terminal():
             self._curr_player = (self._curr_player + 1) % len(self._players)
-            self._players[self._curr_player].init_turn()
         else:
             raise Exception("Game is finished")
 
@@ -629,7 +646,8 @@ class DominionObserver:
             ('hand', len(_ALL_CARDS), (len(_ALL_CARDS),)),
             ('cards_in_play',len(_ALL_CARDS),(len(_ALL_CARDS),)),
             ('discard', len(_ALL_CARDS), (len(_ALL_CARDS),)),
-            ('trash', len(_ALL_CARDS), (len(_ALL_CARDS),))
+            ('trash', len(_ALL_CARDS), (len(_ALL_CARDS),)),
+            ('effect', 1, (1,))
         ]
 
         # build the single flat tensor
@@ -660,7 +678,7 @@ class DominionObserver:
         kingdom_piles = [state.kingdom_piles[card.name].qty if card.name in state.kingdom_piles else 0 for card in _ALL_KINGDOM_CARDS] 
         treasure_piles = [pile.qty for pile in state.treasure_piles.values()]
         victory_piles = [pile.qty for pile in state.victory_piles.values()]
-
+        effect = state.effect_runner.effects[player].id if state.effect_runner.effects[player] is not None else 0
         values = [
             ("kingdom_cards_in_play",[1 if card.name in self._kingdom_cards else 0 for card in _ALL_KINGDOM_CARDS]),
             ('kingdom_piles', kingdom_piles),
@@ -675,7 +693,8 @@ class DominionObserver:
             ('hand', self._num_all_cards(state._kingdom_card_names, state.get_player(player).hand)),
             ('cards_in_play',self._num_all_cards(state._kingdom_card_names,state.get_player(player).cards_in_play)),
             ('discard', self._num_all_cards(state._kingdom_card_names, state.get_player(player).discard_pile)),
-            ('trash', self._num_all_cards(state._kingdom_card_names, state.get_player(player).trash_pile))
+            ('trash', self._num_all_cards(state._kingdom_card_names, state.get_player(player).trash_pile)),
+            ('effect',effect),
         ]
 
         for name, value in values:
@@ -695,6 +714,7 @@ class DominionObserver:
         treasure_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.treasure_piles.items()])
         victory_piles = ", ".join([f"{item[0]}: {item[1].qty}" for item in state.victory_piles.items()])
         victory_points = ", ".join([f"p{player}: {vp}" for player, vp in enumerate(state.victory_points)])
+        effect = str(state.effect_runner.effects[player]) if state.effect_runner.effects[player] is not None else "none"
 
         pieces.append(f"kingdom supply piles: {kingdom_supply_piles}")
         pieces.append(f"treasure supply piles: {treasure_piles}")
@@ -714,7 +734,7 @@ class DominionObserver:
         pieces.append(f"discard pile: {discard_pile if len(discard_pile) > 0 else 'empty'}")
         trash_pile = self._string_count_cards(state.get_player(player).trash_pile)
         pieces.append(f"trash pile: {trash_pile if len(trash_pile) > 0 else 'empty'}")
-
+        pieces.append(f"effect: {effect}")
         return "\n".join(str(p) for p in pieces)
 
 
