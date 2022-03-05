@@ -128,18 +128,46 @@ class DiscardDownToEffect(Effect):
 
     def legal_actions(self, state, player):
         is_valid_card_to_discard = lambda card: card in player.hand
-        discardable_cards = list(map(lambda card: card.id,filter(is_valid_to_discard,_ALL_CARDS)))
+        discardable_cards = list(map(lambda card: card.id,filter(is_valid_card_to_discard,_ALL_CARDS)))
         return discardable_cards
 
     def apply_action(self, state, action):
-        card = _ALL_CARDS[action]        
-        player = state.get_player(state._curr_player)
+        card = _ALL_CARDS[action-1]        
+        player = state.get_current_player()
         player.hand.remove(card)
-        player.discard_pile.add(card)
+        player.discard_pile.append(card)
         if len(player.hand) is self.num_cards_downto:
-            state.effect_runner[player.id] = None
+            state.effect_runner.effects[player.id] = None
 
+class TrashCardsEffect(Effect):
+    """
+    Player trashes n cards Example: Chapel.
+    """
+    def __init__(self, num_cards, filter_func = None, optional = True):
+        self.num_cards = num_cards
+        self.filter_func = filter_func
+        self.optional = optional
+    
+    def __eq__(self,other):
+        return self.num_cards == other.num_cards and self.filter_func == other.filter_func and self.optional == other.optional
 
+    def legal_actions(self, state, player):
+        is_valid_card_to_trash = lambda card: card in player.hand
+        trashable_cards = list(map(lambda card: card.id,filter(is_valid_card_to_trash,_ALL_CARDS)))
+        return trashable_cards + [END_PHASE_ACTION]
+
+    def apply_action(self, state, action):
+        player = state.get_current_player()
+        if action is END_PHASE_ACTION:
+            state.effect_runner.effects[player.id] = None
+        else:
+            card = _ALL_CARDS[action-1]        
+            player.hand.remove(card)
+            player.trash_pile.append(card)
+    
+    def run(self,state,player):
+        state.effect_runner.initiator = player.id
+        state.effect_runner.add_effect(player.id,self)
 
 class OpponentsDiscardDownToEffect(Effect):
     def __init__(self, num_cards_downto):
@@ -151,6 +179,102 @@ class OpponentsDiscardDownToEffect(Effect):
         for player in state.other_players(player):
             state.effect_runner.add_effect(player,effect)
 
+class GainCardToDiscardPileEffect(Effect):
+    def __init__(self,card):
+        self.card = card
+    def __eq__(self,other):
+        return self.card == other.card
+    def run(self,state,player):
+        state._all_supply_piles[self.card.name].qty -= 1
+        player.discard_pile.append(self.card)
+        
+
+class OpponentsGainCardEffect(Effect):
+    def __init__(self,card):
+        self.card = card
+    def __eq__(self,other):
+        return self.card == other.card
+    def run(self,state,player):
+        effect = GainCardToDiscardPileEffect(self.card)
+        for opp in state.other_players(player):
+            effect.run(state,state.get_player(opp))
+
+
+class ChoosePileToGainEffect(Effect):
+    """Choose a pile to gain a card from. Card's cost must <= than n coins. E.g. Workshop"""
+    def __init__(self, n_coins):
+        self.n_coins = n_coins
+    def __eq__(self,other):
+        return self.n_coins == other.n_coins
+
+    def legal_actions(self, state, player):
+        is_valid_to_gain = lambda supply_pile: supply_pile.qty > 0 and supply_pile.card.cost <= self.n_coins
+        gainable_cards = list(map(lambda pile: pile.card.id,filter(is_valid_to_gain,state._all_supply_piles.values())))
+        gainable_cards.sort()
+        return gainable_cards
+    
+    def apply_action(self, state, action):
+        player = state.get_current_player()
+        card = _ALL_CARDS[action-1]        
+        state._all_supply_piles[card.name].qty -= 1
+        player.discard_pile.append(card)
+        state.effect_runner.effects[player.id] = None
+
+    def run(self,state,player):
+        state.effect_runner.initiator = player.id
+        state.effect_runner.add_effect(player.id,self)        
+
+class TrashAndGainEffect(Effect):
+    """trash a card from your hand. gain a card costing up to 2 more than it. E.g. remodel""" 
+    def __init__(self, add_cost: int, gain_exact_cost: bool):
+        self.add_cost = add_cost
+        self.gain_exact_cost = gain_exact_cost
+        self.has_trashed = False
+        self.trashed_card = None
+    
+    def __eq__(self,other):
+        return self.add_cost is other.add_cost and self.gain_exact_cost is other.gain_exact_cost
+    
+    def legal_actions(self,state,player):
+        if not self.has_trashed:
+            is_valid_card_to_trash = lambda card: card in player.hand
+            trashable_cards = list(map(lambda card: card.id,filter(is_valid_card_to_trash,_ALL_CARDS)))
+            return trashable_cards
+        else:
+            is_valid_card_to_gain_exact = lambda pile: pile.qty > 0 and pile.card.cost == self.trashed_card.cost + self.add_cost
+            is_valid_card_to_gain = lambda pile: pile.qty > 0 and pile.card.cost <= self.trashed_card.cost + self.add_cost 
+            gainable_cards =  filter(is_valid_card_to_gain_exact,state._all_supply_piles.values()) if self.gain_exact_cost else filter(is_valid_card_to_gain,state._all_supply_piles.values())
+            gainable_cards = list(map(lambda pile: pile.card.id, gainable_cards))
+            gainable_cards.sort()
+            return gainable_cards
+
+    def apply_action(self, state, action):
+        player = state.get_current_player()
+        if not self.has_trashed:
+            card = _ALL_CARDS[action-1]        
+            player.hand.remove(card)
+            player.trash_pile.append(card)
+            self.trashed_card = card
+            self.has_trashed = True
+        else:
+            card = _ALL_CARDS[action-1]        
+            state._all_supply_piles[card.name].qty -= 1
+            player.discard_pile.append(card)
+            state.effect_runner.effects[player.id] = None
+    def run(self,state,player):
+        state.effect_runner.initiator = player.id
+        state.effect_runner.add_effect(player.id,self)        
+
+""" TREASURE CARDS """
+COPPER = TreasureCard(id=1, name='Copper', cost=0, coins=1)
+SILVER = TreasureCard(id=2, name='Silver', cost=3, coins=2)
+GOLD = TreasureCard(id=3, name='Gold', cost=6, coins=3)
+
+""" VICTORY CARDS """
+CURSE = VictoryCard(id=4, name='Curse', cost=0, victory_points=-1)
+DUCHY = VictoryCard(id=5, name='Duchy', cost=4, victory_points=5)
+ESTATE = VictoryCard(id=6, name='Estate', cost=2, victory_points=1)
+PROVINCE = VictoryCard(id=7, name='Province', cost=8, victory_points=8)
 
 """ KINGDOM CARDS """
 VILLAGE = ActionCard(id=8, name='Village', cost=3, add_actions=2, add_cards=1)
@@ -158,17 +282,20 @@ LABORATORY = ActionCard(id=9, name='Laboratory', cost=5, add_cards=2, add_action
 FESTIVAL = ActionCard(id=10, name='Festival', cost=5, add_actions=2, add_buys=1, coins=2)
 MARKET = ActionCard(id=11, name='Market', cost=5, add_actions=1, add_buys=1, coins=1, add_cards=1)
 SMITHY = ActionCard(id=12, name="Smithy", cost=4, add_cards=3)
-
+## ---------------------------------------------------------
 MILITIA = AttackCard(id=13, name='Militia', cost=4, coins=2, effect_list=[OpponentsDiscardDownToEffect(3)], add_cards=0,
                      global_trigger=None)
 GARDENS = VictoryCard(id=14, name='Gardens', cost=4, victory_points=0,
                       vp_fn=lambda all_cards: math.floor(len(all_cards) / 10))
-CHAPEL = ActionCard(id=15, name='Chapel', cost=2, effect_list=[])
-WITCH = AttackCard(id=16, name='Witch', cost=5, add_cards=2, effect_list=[], coins=0, global_trigger=None)
-WORKSHOP = ActionCard(id=17, name='Workshop', cost=3, effect_list=[])
+CHAPEL = ActionCard(id=15, name='Chapel', cost=2, effect_list=[TrashCardsEffect(num_cards=4,optional=True)])
+WITCH = AttackCard(id=16, name='Witch', cost=5, add_cards=2, effect_list=[OpponentsGainCardEffect(CURSE)], coins=0, global_trigger=None)
+WORKSHOP = ActionCard(id=17, name='Workshop', cost=3, effect_list=[ChoosePileToGainEffect(4)])
+## ---------------------------------------------------------
 
-BANDIT = AttackCard(id=18, name='Bandit', cost=5, effect_list=[], coins=0, add_cards=0, global_trigger=None)
-REMODEL = ActionCard(id=19, name='Remodel', cost=4, effect_list=[])
+BANDIT = AttackCard(id=18, name='Bandit', cost=5, effect_list=[GainCardToDiscardPileEffect(GOLD)], coins=0, add_cards=0, global_trigger=None)
+REMODEL = ActionCard(id=19, name='Remodel', cost=4, effect_list=[TrashAndGainEffect(2,False)])
+
+
 THRONE_ROOM = ActionCard(id=20, name='Throne Room', cost=4, effect_fn=None)
 MONEYLENDER = ActionCard(id=21, name='Moneylender', cost=4, effect_fn=None)
 POACHER = ActionCard(id=22, name='Poacher', cost=4, add_cards=4, add_actions=1, coins=1, effect_fn=None)
@@ -184,16 +311,6 @@ HARBINGER = ActionCard(id=31, name='Harbinger', cost=3, add_cards=1, add_actions
 LIBRARY = ActionCard(id=32, name='Library', cost=5, effect_fn=None)
 MOAT = ReactionCard(id=33, name='Moat', cost=2, add_cards=2, global_trigger=None)
 
-""" TREASURE CARDS """
-COPPER = TreasureCard(id=1, name='Copper', cost=0, coins=1)
-SILVER = TreasureCard(id=2, name='Silver', cost=3, coins=2)
-GOLD = TreasureCard(id=3, name='Gold', cost=6, coins=3)
-
-""" VICTORY CARDS """
-CURSE = VictoryCard(id=4, name='Curse', cost=0, victory_points=-1)
-DUCHY = VictoryCard(id=5, name='Duchy', cost=4, victory_points=5)
-ESTATE = VictoryCard(id=6, name='Estate', cost=2, victory_points=1)
-PROVINCE = VictoryCard(id=7, name='Province', cost=8, victory_points=8)
 
 _INIT_KINGDOM_SUPPLY = {
     "Village": SupplyPile(VILLAGE, 10),
@@ -302,7 +419,6 @@ class Player(object):
         if card.add_cards:
             self._draw_hand(card.add_cards)
         for effect in card.effect_list:
-            # pass
             effect.run(state, self)
         if card.effect_fn:
             pass
@@ -444,7 +560,7 @@ class EffectRunner:
 
     def apply_action(self,state,action):
         self.effects[self.active_player].apply_action(state,action)
-        return active_player
+        return self.active_player
 
 class DominionGameState(pyspiel.State):
     """ a python version of the Dominon state."""
@@ -473,13 +589,13 @@ class DominionGameState(pyspiel.State):
     @property
     def victory_points(self):
         return list(map(lambda p: p.victory_points,self._players))
-
+    
     def is_terminal(self):
         no_provinces_left = self.victory_piles[PROVINCE.name].qty is 0
         three_piles_empty = len(list(filter(lambda supply: supply.qty is 0, self._all_supply_piles.values()))) is 3
         self._is_terminal = no_provinces_left or three_piles_empty
         return self._is_terminal
-
+    
     def current_player(self):
         """Returns id of the next player to move, or TERMINAL if game is over."""
         if self.effect_runner.active:
@@ -492,7 +608,7 @@ class DominionGameState(pyspiel.State):
     def _legal_actions(self, player_id: int) -> list:
         player = self.get_player(player_id)
         if self.effect_runner.active:
-            return self.effect_runner.legal_actions(state,player)
+            return self.effect_runner.legal_actions(self,player)
         elif player.phase is TurnPhase.TREASURE_PHASE:
             return self.legal_treasure_cards(player)
         elif player.phase is TurnPhase.BUY_PHASE:
@@ -541,6 +657,9 @@ class DominionGameState(pyspiel.State):
 
     def other_players(self, player):
         return [p.id for p in self._players if p is not player]
+    
+    def get_current_player(self):
+        return self.get_player(self._curr_player)
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
@@ -556,14 +675,14 @@ class DominionGameState(pyspiel.State):
         return "\n".join(str(p) for p in pieces)
 
     def play_treasure_card(self, card: TreasureCard):
-        player = self.get_player(self.current_player())
+        player = self.get_current_player()
         player.play_treasure_card_from_hand(card)
         all_treasure_cards_played = len(list(filter(lambda card: isinstance(card, TreasureCard), player.hand))) == 0
         if all_treasure_cards_played:
             self.play_end_phase(player)
 
     def play_buy_card(self, card: Card):
-        player = self.get_player(self.current_player())
+        player = self.get_current_player()
         if player.buys is 0:
             raise Exception(f"Player {player.id} does not have any buys")
         else:
@@ -573,7 +692,7 @@ class DominionGameState(pyspiel.State):
             self.play_end_phase(player)
 
     def play_action_card(self, card: ActionCard):
-        player = self.get_player(self.current_player())
+        player = self.get_current_player()
         if player.actions is 0:
             raise Exception(f"Player {player.id} does not have any actions")
         player.play_action_card_from_hand(self, card)
@@ -601,7 +720,7 @@ class DominionGameState(pyspiel.State):
             elif action is END_PHASE_ACTION:
                 self.play_end_phase(self.get_player(player))
             else:
-                player = self.get_player(self.current_player())
+                player = self.get_current_player()
                 if player.phase is TurnPhase.TREASURE_PHASE:
                     self.play_treasure_card(_ALL_CARDS[action-1])
                 elif player.phase is TurnPhase.BUY_PHASE:
@@ -618,10 +737,10 @@ class DominionGameState(pyspiel.State):
     def load_hand(self, card_names):
         if len(card_names) > _HAND_SIZE:
             raise Exception("List of cards to load into player's hand must be <= 5")
-        if len(self.get_player(self.current_player()).hand) is not _HAND_SIZE:
+        if len(self.get_current_player().hand) is not _HAND_SIZE:
             raise Exception("load hand can only be called at start of player's turn")
         cards = [self._all_supply_piles[name].card for name in card_names]
-        self.get_player(self.current_player()).re_init_turn(cards)
+        self.get_current_player().re_init_turn(cards)
 
 
 class DominionObserver:

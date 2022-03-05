@@ -16,6 +16,7 @@
 """Tests for Python Dominion."""
 
 import numpy as np
+import random
 from absl.testing import absltest
 from open_spiel.python.games import dominion
 
@@ -303,141 +304,141 @@ from open_spiel.python.games import dominion
 #         self.assertEqual(0, len(curr_player.draw_pile))
 
 class DominionKingdomCardEffects(absltest.TestCase):
-    # def test_village(self):
-    #     """ Playing village adds 1 card, 2 actions """
-    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-    #     state = game.new_initial_state()
-    #     state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-    #     curr_player = state.get_player(state.current_player())
-    #     for _ in range(4):
-    #         state.apply_action(dominion.COPPER.id)
-    #     # buy Village
-    #     state.apply_action(dominion.VILLAGE.id)
-    #     # next player skips buy phase and moves back to first player
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     # back to inital player ; play village
-    #     state.load_hand(['Village'])
-    #     state.apply_action(dominion.VILLAGE.id)
-    #     self.assertEqual(state.get_player(0).actions, 2)
-    #     # player wil not have any action cards left, move on to TREASURE_PHASE
-    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
-    #     self.assertEqual(len(state.get_player(0).hand), 5)
+    def test_village(self):
+        """ Playing village adds 1 card, 2 actions """
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        curr_player = state.get_player(state.current_player())
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        # buy Village
+        state.apply_action(dominion.VILLAGE.id)
+        # next player skips buy phase and moves back to first player
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # back to inital player ; play village
+        state.load_hand(['Village'])
+        state.apply_action(dominion.VILLAGE.id)
+        self.assertEqual(state.get_player(0).actions, 2)
+        # player wil not have any action cards left, move on to TREASURE_PHASE
+        self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(len(state.get_player(0).hand), 5)
     
-    # def test_laboratory(self):
-    #     """add 2 cards ; add 1 action"""
-    #     kingdom_cards = "Moat, Village, Laboratory, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
-    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-    #     game = dominion.DominionGame(game_params)
-    #     state = game.new_initial_state()
-    #     curr_player = state.get_player(state.current_player())
+    def test_laboratory(self):
+        """add 2 cards ; add 1 action"""
+        kingdom_cards = "Moat, Village, Laboratory, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
 
-    #     #mock draw_pile to contain at least 5 coins to purchase Laboratory
-    #     curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
-    #     state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
+        #mock draw_pile to contain at least 5 coins to purchase Laboratory
+        curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
+        state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
         
-    #     #play all golds + end Phase
-    #     for _ in range(3):
-    #         state.apply_action(dominion.GOLD.id)
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     #buy laboratory
-    #     state.apply_action(dominion.LABORATORY.id)
-    #     # skip next player's turn
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     # play Laboratory
-    #     state.load_hand([dominion.LABORATORY.name])
-    #     state.apply_action(dominion.LABORATORY.id)
+        #play all golds + end Phase
+        for _ in range(3):
+            state.apply_action(dominion.GOLD.id)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        #buy laboratory
+        state.apply_action(dominion.LABORATORY.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play Laboratory
+        state.load_hand([dominion.LABORATORY.name])
+        state.apply_action(dominion.LABORATORY.id)
 
-    #     self.assertEqual(state.get_player(0).actions, 1)
-    #     # player wil not have any action cards left, move on to TREASURE_PHASE
-    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
-    #     self.assertEqual(len(state.get_player(0).hand), 6)
+        self.assertEqual(state.get_player(0).actions, 1)
+        # player wil not have any action cards left, move on to TREASURE_PHASE
+        self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(len(state.get_player(0).hand), 6)
 
-    # def test_festival(self):
-    #     """add 2 actions ; 1 buys ; 2 coins"""
-    #     kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
-    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-    #     game = dominion.DominionGame(game_params)
-    #     state = game.new_initial_state()
-    #     curr_player = state.get_player(state.current_player())
+    def test_festival(self):
+        """add 2 actions ; 1 buys ; 2 coins"""
+        kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
 
-    #     #mock draw_pile to contain at least 5 coins to purchase Festival
-    #     curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
-    #     state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
+        #mock draw_pile to contain at least 5 coins to purchase Festival
+        curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
+        state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
         
-    #     #play all golds + end Phase
-    #     for _ in range(3):
-    #         state.apply_action(dominion.GOLD.id)
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     #buy Festival
-    #     state.apply_action(dominion.FESTIVAL.id)
-    #     # skip next player's turn
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     # play Festival
-    #     state.load_hand([dominion.FESTIVAL.name])
-    #     state.apply_action(dominion.FESTIVAL.id)
+        #play all golds + end Phase
+        for _ in range(3):
+            state.apply_action(dominion.GOLD.id)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        #buy Festival
+        state.apply_action(dominion.FESTIVAL.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play Festival
+        state.load_hand([dominion.FESTIVAL.name])
+        state.apply_action(dominion.FESTIVAL.id)
 
-    #     self.assertEqual(state.get_player(0).coins, 2)
-    #     self.assertEqual(state.get_player(0).buys, 2)
-    #     self.assertEqual(state.get_player(0).actions, 2)
-    #     # player wil not have any action cards left, move on to TREASURE_PHASE
-    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(state.get_player(0).coins, 2)
+        self.assertEqual(state.get_player(0).buys, 2)
+        self.assertEqual(state.get_player(0).actions, 2)
+        # player wil not have any action cards left, move on to TREASURE_PHASE
+        self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
     
-    # def test_market(self):
-    #     """add 1 actoin, 1 buy, 1 coin, 1 card"""
-    #     kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
-    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-    #     game = dominion.DominionGame(game_params)
-    #     state = game.new_initial_state()
-    #     curr_player = state.get_player(state.current_player())
+    def test_market(self):
+        """add 1 actoin, 1 buy, 1 coin, 1 card"""
+        kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
 
-    #     #mock draw_pile to contain at least 5 coins to purchase Market
-    #     curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
-    #     state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
+        #mock draw_pile to contain at least 5 coins to purchase Market
+        curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
+        state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
         
-    #     #play all golds + end Phase
-    #     for _ in range(3):
-    #         state.apply_action(dominion.GOLD.id)
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     #buy Market
-    #     state.apply_action(dominion.MARKET.id)
-    #     # skip next player's turn
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     # play Market
-    #     state.load_hand([dominion.MARKET.name])
-    #     state.apply_action(dominion.MARKET.id)
+        #play all golds + end Phase
+        for _ in range(3):
+            state.apply_action(dominion.GOLD.id)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        #buy Market
+        state.apply_action(dominion.MARKET.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play Market
+        state.load_hand([dominion.MARKET.name])
+        state.apply_action(dominion.MARKET.id)
 
-    #     self.assertEqual(state.get_player(0).coins, 1)
-    #     self.assertEqual(state.get_player(0).buys, 2)
-    #     self.assertEqual(state.get_player(0).actions, 1)
-    #     self.assertEqual(len(state.get_player(0).hand),5)
-    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(state.get_player(0).coins, 1)
+        self.assertEqual(state.get_player(0).buys, 2)
+        self.assertEqual(state.get_player(0).actions, 1)
+        self.assertEqual(len(state.get_player(0).hand),5)
+        self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
     
-    # def test_smithy(self):
-    #     """ add 3 cards """ 
-    #     kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
-    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-    #     game = dominion.DominionGame(game_params)
-    #     state = game.new_initial_state()
-    #     curr_player = state.get_player(state.current_player())
+    def test_smithy(self):
+        """ add 3 cards """ 
+        kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
 
-    #     #mock draw_pile to contain at least 4 coins to purchase Smithy
-    #     curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
-    #     state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
+        #mock draw_pile to contain at least 4 coins to purchase Smithy
+        curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
+        state.load_hand(['Gold','Gold','Copper','Gold','Estate'])
         
-    #     #play all golds + end Phase
-    #     for _ in range(3):
-    #         state.apply_action(dominion.GOLD.id)
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     #buy Smithy
-    #     state.apply_action(dominion.SMITHY.id)
-    #     # skip next player's turn
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     # play Smithy
-    #     state.load_hand([dominion.SMITHY.name])
-    #     state.apply_action(dominion.SMITHY.id)
+        #play all golds + end Phase
+        for _ in range(3):
+            state.apply_action(dominion.GOLD.id)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        #buy Smithy
+        state.apply_action(dominion.SMITHY.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play Smithy
+        state.load_hand([dominion.SMITHY.name])
+        state.apply_action(dominion.SMITHY.id)
 
-    #     self.assertEqual(len(state.get_player(0).hand),7)
-    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(len(state.get_player(0).hand),7)
+        self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
     
     def test_militia(self):
         """add 2 coins, runs OpponentsDiscardDownToEffect which causes opponents to draw down to 3 cards in their hands (cards put into their respective discard piles) """
@@ -471,36 +472,253 @@ class DominionKingdomCardEffects(absltest.TestCase):
             self.assertEqual(state.effect_runner.effects[p],drawDownToThreeCards)
         #assert player 1 is active (needs to attend to effect)
         self.assertEqual(state.current_player(),1)
-        state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
         
-        state.apply_action(dominion.COPPER.id)
-        state.apply_action(dominion.COPPER.id)
-        state.apply_action(dominion.COPPER.id)
+        #player attends to effect:
+        num_cards_in_discard_pile = len(state.get_player(1).discard_pile)
+        while state.current_player() is 1:
+            card_to_discard = random.choice(state.legal_actions())
+            self.assertTrue(card_to_discard in list(map(lambda card: card.id,state.get_current_player().hand)))
+            state.apply_action(card_to_discard)
+        self.assertEqual(len(state.get_player(1).hand),drawDownToThreeCards.num_cards_downto)
+        self.assertEqual(len(state.get_player(1).discard_pile),num_cards_in_discard_pile+2)
+        
+        self.assertEqual(state.current_player(),0)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(state.get_current_player().coins,2)
 
+    def test_gardens(self):
+        kingdom_cards = "Moat, Village, Gardens, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+        
+        #mock draw pile
+        curr_player.draw_pile.append(dominion.VILLAGE)
+        curr_player.draw_pile.append(dominion.VILLAGE)
+        curr_player.draw_pile.append(dominion.VILLAGE)
+        curr_player.draw_pile.append(dominion.VILLAGE)
+        curr_player.draw_pile.append(dominion.VILLAGE)
 
+        curr_player.draw_pile.append(dominion.GARDENS)
 
-        # self.assertEqual(state.get_player(0).coins,2)
-        # self.assertNotEqual(len(state.get_player(0).hand),3)
-        # self.assertEqual(len(state.get_player(1).hand),3)
-        # self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(curr_player.victory_points,4)
+    
+    def test_chapel(self):
+        """Player can trash up to 4 cards from hand"""
 
-    # def test_gardens(self):
-    #     kingdom_cards = "Moat, Village, Gardens, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 2 coins to buy a chapel
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy chapel
+        state.apply_action(dominion.CHAPEL.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play Chapel
+        state.load_hand([dominion.CHAPEL.name])
+        state.apply_action(dominion.CHAPEL.id)
+
+        #assert trashCardsEffect is running
+        self.assertTrue(state.effect_runner.active)
+        trashCardsEffect = dominion.TrashCardsEffect(4,optional=True)
+        self.assertEqual(state.effect_runner.effects[0],trashCardsEffect)
+        self.assertEqual(state.current_player(),0)
+        self.assertEqual(state.effect_runner.effects[1],None)
+
+        # trash 2 cards and move on:
+        for _ in range(2):
+            trash_to_discard = random.choice(state.legal_actions()[:-1])
+            self.assertTrue(trash_to_discard in list(map(lambda card: card.id,state.get_current_player().hand)))
+            state.apply_action(trash_to_discard)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        self.assertEqual(state.effect_runner.active,False)
+        self.assertEqual(len(state.get_current_player().trash_pile),2)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+     
+
+    # def test_witch_opponent_immune(self):
+    #     """Since opponent immune to attack opponent will not gain a curse,but player to gain 2 cards to hand"""
+
+    #     kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
     #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
     #     game = dominion.DominionGame(game_params)
     #     state = game.new_initial_state()
     #     curr_player = state.get_player(state.current_player())
+
+    #     #must have 5 coins to buy a WITCH
+    #     state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
         
-    #     #mock draw pile
-    #     curr_player.draw_pile.append(dominion.VILLAGE)
-    #     curr_player.draw_pile.append(dominion.VILLAGE)
-    #     curr_player.draw_pile.append(dominion.VILLAGE)
-    #     curr_player.draw_pile.append(dominion.VILLAGE)
-    #     curr_player.draw_pile.append(dominion.VILLAGE)
+    #     for _ in range(5):
+    #         state.apply_action(dominion.COPPER.id)
+    #     #buy witch
+    #     state.apply_action(dominion.WITCH.id)
+    #     # skip next player's turn
+    #     state.apply_action(dominion.END_PHASE_ACTION)
+    #     # play Witch
+    #     state.load_hand([dominion.WITCH.name])
+    #     state.apply_action(dominion.WITCH.id)
 
-    #     curr_player.draw_pile.append(dominion.GARDENS)
+    #     #assert opponents have gained a curse (causes a loss of 1 VP)
+    #     for p in state.other_players(state.get_player(0)):
+    #         self.assertIn(dominion.CURSE,state.get_player(p).discard_pile)
+    #         self.assertEqual(state.get_player(p).victory_points,2)
+    #     self.assertEqual(len(state.get_current_player().hand),5)
 
-    #     self.assertEqual(curr_player.victory_points,4)
-   
+    #     def test_witch(self):
+    #     """causes opponents to gain a curse card and player to gain 2 cards to hand"""
+
+    #     kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
+    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+    #     game = dominion.DominionGame(game_params)
+    #     state = game.new_initial_state()
+    #     curr_player = state.get_player(state.current_player())
+
+    #     #must have 5 coins to buy a WITCH
+    #     state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+    #     for _ in range(5):
+    #         state.apply_action(dominion.COPPER.id)
+    #     #buy witch
+    #     state.apply_action(dominion.WITCH.id)
+    #     # skip next player's turn
+    #     state.apply_action(dominion.END_PHASE_ACTION)
+    #     # play Witch
+    #     state.load_hand([dominion.WITCH.name])
+    #     state.apply_action(dominion.WITCH.id)
+
+    #     #assert opponents have gained a curse (causes a loss of 1 VP)
+    #     for p in state.other_players(state.get_player(0)):
+    #         self.assertIn(dominion.CURSE,state.get_player(p).discard_pile)
+    #         self.assertEqual(state.get_player(p).victory_points,2)
+    #     self.assertEqual(len(state.get_current_player().hand),5)
+
+    def test_workshop(self):
+        """player gains a card from any pile costing less than 4 coins to their discard pile"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Workshop, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 3 coins to buy a Workshop
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.id)
+        #buy workshop
+        state.apply_action(dominion.WORKSHOP.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play workshop
+        state.load_hand([dominion.WORKSHOP.name])
+        state.apply_action(dominion.WORKSHOP.id)
+
+        gainEffect = dominion.ChoosePileToGainEffect(4)
+
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.effects[0],gainEffect)
+        self.assertEqual(state.current_player(),0)
+
+        cards_less_than_equal_4_coins = list(map(lambda card: card.id,filter(lambda card: card.cost <= 4 and card.name in state._all_supply_piles,dominion._ALL_CARDS)))
+
+        legal_actions = state.legal_actions()
+
+        self.assertEqual(cards_less_than_equal_4_coins,legal_actions)
+
+        state.apply_action(random.choice(legal_actions))
+
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(state.current_player(),0)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+
+    def test_bandit(self):
+        """player gains a gold card to discard pile"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Bandit, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 5 coins to buy a bandit
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.id)
+        #buy bandit
+        state.apply_action(dominion.BANDIT.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play bandit
+        state.load_hand([dominion.BANDIT.name])
+        state.apply_action(dominion.BANDIT.id)
+
+        self.assertEqual(state.current_player(),0)
+        self.assertIn(dominion.GOLD,state.get_current_player().discard_pile)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+
+    def test_remodel(self):
+        """player trashes a card and gains a card whose cost is <= cost of trashed_card + 2"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Remodel, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 4 coins to buy a remodel
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.id)
+        #buy remodel
+        state.apply_action(dominion.REMODEL.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play remodel
+        state.load_hand([dominion.REMODEL.name, dominion.ESTATE.name])
+        state.apply_action(dominion.REMODEL.id)
+
+        self.assertEqual(state.current_player(),0)
+        self.assertTrue(state.effect_runner.active)
+
+        effect = dominion.TrashAndGainEffect(2,False)
+
+        self.assertEqual(state.effect_runner.effects[0],effect)
+        
+        cards_in_hand = list(set(list(map(lambda card: card.id,state.get_current_player().hand))))
+
+        self.assertEqual(state.legal_actions(),cards_in_hand)
+
+        #trash estate in hand
+        state.apply_action(dominion.ESTATE.id)
+        self.assertEqual(len(state.get_current_player().hand),3)
+        self.assertEqual(len(state.get_current_player().trash_pile),1)
+        self.assertIn(dominion.ESTATE,state.get_current_player().trash_pile)
+        self.assertTrue(state.effect_runner.active)
+        is_valid_card_to_gain = lambda pile: pile.qty > 0 and pile.card.cost <= dominion.ESTATE.cost + 2
+        valid_gainable_cards = filter(is_valid_card_to_gain,state._all_supply_piles.values())
+        valid_gainable_cards = list(map(lambda pile: pile.card.id, valid_gainable_cards))
+        valid_gainable_cards.sort()
+        self.assertEqual(valid_gainable_cards,state.legal_actions())
+        state.apply_action(dominion.SILVER.id)
+        self.assertIn(dominion.SILVER,state.get_current_player().discard_pile)
+        self.assertFalse(state.effect_runner.active)
+
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+
+
+
+
+
 if __name__ == "__main__":
     absltest.main()
