@@ -21,287 +21,287 @@ from absl.testing import absltest
 from open_spiel.python.games import dominion
 
 
-# class DominionTestState(absltest.TestCase):
+class DominionTestState(absltest.TestCase):
 
-#     def test_can_create_and_state(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         self.assertIsNotNone(state)
+    def test_can_create_and_state(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertIsNotNone(state)
 
-#     def test_state_has_supply_piles_victory_points(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         self.assertIsNotNone(state.kingdom_piles)
-#         self.assertIsNotNone(state.victory_piles)
-#         self.assertIsNotNone(state.treasure_piles)
-#         self.assertIsNotNone(state.victory_points)
-#         self.assertEqual(len(state.victory_points),dominion._DEFAULT_PARAMS['num_players'])
+    def test_state_has_supply_piles_victory_points(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertIsNotNone(state.kingdom_piles)
+        self.assertIsNotNone(state.victory_piles)
+        self.assertIsNotNone(state.treasure_piles)
+        self.assertIsNotNone(state.victory_points)
+        self.assertEqual(len(state.victory_points),dominion._DEFAULT_PARAMS['num_players'])
 
-#     def test_each_player_starts_with_7coppers_3_estates_in_draw_piles(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         num_cards = lambda card_name, cards: len(list(filter(lambda card: card.name == card_name, cards)))
-#         for p in range(dominion._DEFAULT_PARAMS['num_players']):
-#             player = state.get_player(p)
-#             self.assertEqual(num_cards(dominion.COPPER.name,player.hand + player.draw_pile),7)
-#             self.assertEqual(num_cards(dominion.ESTATE.name,player.hand + player.draw_pile),3)
+    def test_each_player_starts_with_7coppers_3_estates_in_draw_piles(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        num_cards = lambda card_name, cards: len(list(filter(lambda card: card.name == card_name, cards)))
+        for p in range(dominion._DEFAULT_PARAMS['num_players']):
+            player = state.get_player(p)
+            self.assertEqual(num_cards(dominion.COPPER.name,player.hand + player.draw_pile),7)
+            self.assertEqual(num_cards(dominion.ESTATE.name,player.hand + player.draw_pile),3)
 
-#     def test_first_player_draws_5cards_from_discard_pile_to_start_game(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         self.assertEqual(len(state.get_player(0).hand), dominion._HAND_SIZE)
+    def test_first_player_draws_5cards_from_discard_pile_to_start_game(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        self.assertEqual(len(state.get_player(0).hand), dominion._HAND_SIZE)
 
-#     def test_isTerminal_When0ProvincesLeft(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.victory_piles[dominion.PROVINCE.name].qty = 0
-#         self.assertTrue(state.is_terminal())
+    def test_isTerminal_When0ProvincesLeft(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.victory_piles[dominion.PROVINCE.name].qty = 0
+        self.assertTrue(state.is_terminal())
 
-#     def test_isTerminal_When3SupplyPilesEmpty(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.kingdom_piles[dominion.VILLAGE.name].qty = 0
-#         state.treasure_piles[dominion.GOLD.name].qty = 0
-#         state.kingdom_piles[dominion.BUREAUCRAT.name].qty = 0
-#         self.assertTrue(state.is_terminal())
+    def test_isTerminal_When3SupplyPilesEmpty(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.kingdom_piles[dominion.VILLAGE.name].qty = 0
+        state.treasure_piles[dominion.GOLD.name].qty = 0
+        state.kingdom_piles[dominion.BUREAUCRAT.name].qty = 0
+        self.assertTrue(state.is_terminal())
 
-#     def test_load_hand(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper','Copper','Estate','Copper','Copper'])
-#         player = state.get_player(state.current_player())
-#         self.assertEqual(player.hand,[dominion.COPPER,dominion.COPPER,dominion.ESTATE,dominion.COPPER,dominion.COPPER])
+    def test_load_hand(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Estate','Copper','Copper'])
+        player = state.get_player(state.current_player())
+        self.assertEqual(player.hand,[dominion.COPPER,dominion.COPPER,dominion.ESTATE,dominion.COPPER,dominion.COPPER])
 
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper','Copper','Estate'])
-#         player = state.get_player(state.current_player())
-#         self.assertEqual(player.hand[0:3],[dominion.COPPER,dominion.COPPER,dominion.ESTATE])
-#         self.assertEqual(len(player.hand),dominion._HAND_SIZE)
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.load_hand(['Copper','Copper','Estate'])
+        player = state.get_player(state.current_player())
+        self.assertEqual(player.hand[0:3],[dominion.COPPER,dominion.COPPER,dominion.ESTATE])
+        self.assertEqual(len(player.hand),dominion._HAND_SIZE)
 
 # class DominionObserverTest(absltest.TestCase):
 
-#     def test_dominion_observation(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         observation = game.make_py_observer()
-#         state = game.new_initial_state()
+    # def test_dominion_observation(self):
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     observation = game.make_py_observer()
+    #     state = game.new_initial_state()
 
-#         state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
+    #     state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
 
-#         observation.set_from(state, player=0)
+    #     observation.set_from(state, player=0)
 
-#         self.assertEqual(list(observation.dict),
-#                          ["kingdom_cards_in_play","kingdom_piles", "treasure_piles", "victory_piles", "victory_points", "TurnPhase", "actions",
-#                           "buys",
-#                           "coins", "draw", "hand", "cards_in_play","discard", "trash"])
+    #     self.assertEqual(list(observation.dict),
+    #                      ["kingdom_cards_in_play","kingdom_piles", "treasure_piles", "victory_piles", "victory_points", "TurnPhase", "actions",
+    #                       "buys",
+    #                       "coins", "draw", "hand", "cards_in_play","discard", "trash"])
 
-#         np.testing.assert_equal(observation.tensor.shape, (230,))
-#         np.testing.assert_array_equal(observation.dict["kingdom_cards_in_play"],[1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,0, 0, 1, 1])
-#         np.testing.assert_array_equal(observation.dict["treasure_piles"], [46, 40, 30])
-#         np.testing.assert_array_equal(observation.dict["victory_piles"], [10, 8, 8, 8])
-#         np.testing.assert_array_equal(observation.dict["victory_points"], [3, 3])
-#         np.testing.assert_array_equal(observation.dict["coins"], [0])
-#         np.testing.assert_array_equal(observation.dict["buys"], [1])
-#         np.testing.assert_array_equal(observation.dict["actions"], [1])
-#         np.testing.assert_array_equal(observation.dict["draw"], [4, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-#         np.testing.assert_array_equal(observation.dict["hand"], [3, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-#         np.testing.assert_equal(observation.dict["discard"], np.zeros(33))
-#         np.testing.assert_equal(observation.dict["trash"], np.zeros(33))
-#         np.testing.assert_equal((observation.dict["cards_in_play"]), np.zeros(33))
+    #     np.testing.assert_equal(observation.tensor.shape, (230,))
+    #     np.testing.assert_array_equal(observation.dict["kingdom_cards_in_play"],[1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,0, 0, 1, 1])
+    #     np.testing.assert_array_equal(observation.dict["treasure_piles"], [46, 40, 30])
+    #     np.testing.assert_array_equal(observation.dict["victory_piles"], [10, 8, 8, 8])
+    #     np.testing.assert_array_equal(observation.dict["victory_points"], [3, 3])
+    #     np.testing.assert_array_equal(observation.dict["coins"], [0])
+    #     np.testing.assert_array_equal(observation.dict["buys"], [1])
+    #     np.testing.assert_array_equal(observation.dict["actions"], [1])
+    #     np.testing.assert_array_equal(observation.dict["draw"], [4, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    #     np.testing.assert_array_equal(observation.dict["hand"], [3, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    #     np.testing.assert_equal(observation.dict["discard"], np.zeros(33))
+    #     np.testing.assert_equal(observation.dict["trash"], np.zeros(33))
+    #     np.testing.assert_equal((observation.dict["cards_in_play"]), np.zeros(33))
 
-#         np.testing.assert_equal(np.sum(observation.dict["draw"]) + np.sum(observation.dict["hand"]), 10)
+    #     np.testing.assert_equal(np.sum(observation.dict["draw"]) + np.sum(observation.dict["hand"]), 10)
 
-#     # def test_dominion_observation_str(self):
-#     #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#     #     observation = game.make_py_observer()
-#     #     state = game.new_initial_state()
-#     #     state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
-#     #     obs_str = 'p0: \nkingdom supply piles: Village: 10, Market: 10, Smithy: 10, Militia: 10, Witch: 10, Mine: 10, Council Room: 10, Bureaucrat: 10, Library: 10, Moat: 10\ntreasure supply piles: Copper: 46, Silver: 40, Gold: 30\nvictory supply piles: Curse: 10, Estate: 8, Duchy: 8, Province: 8\nvictory points: p0: 3, p1: 3\nTurn Phase: 2\nactions: 1\nbuys: 1\ncoin: 0\ndraw pile: Copper: 4, Estate: 1\nhand: Copper: 3, Estate: 2\ncards in play: empty\ndiscard pile: empty\ntrash pile: empty'
-#     #     self.assertEqual(observation.string_from(state, player=0),obs_str)
+    # def test_dominion_observation_str(self):
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     observation = game.make_py_observer()
+    #     state = game.new_initial_state()
+    #     state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
+    #     obs_str = 'p0: \nkingdom supply piles: Village: 10, Market: 10, Smithy: 10, Militia: 10, Witch: 10, Mine: 10, Council Room: 10, Bureaucrat: 10, Library: 10, Moat: 10\ntreasure supply piles: Copper: 46, Silver: 40, Gold: 30\nvictory supply piles: Curse: 10, Estate: 8, Duchy: 8, Province: 8\nvictory points: p0: 3, p1: 3\nTurn Phase: 2\nactions: 1\nbuys: 1\ncoin: 0\ndraw pile: Copper: 4, Estate: 1\nhand: Copper: 3, Estate: 2\ncards in play: empty\ndiscard pile: empty\ntrash pile: empty'
+    #     self.assertEqual(observation.string_from(state, player=0),obs_str)
 
-#     def test_treasure_phase_obs(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         observation = game.make_py_observer()
-#         state = game.new_initial_state()
+    # def test_treasure_phase_obs(self):
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     observation = game.make_py_observer()
+    #     state = game.new_initial_state()
 
-#         state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
-#         play_copper = 1
-#         state.apply_action(play_copper)
-#         state.apply_action(play_copper)
-#         observation.set_from(state, player=0)
-#         self.assertEqual(observation.dict['cards_in_play'],[2] + [0] * 32)
+    #     state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
+    #     play_copper = 1
+    #     state.apply_action(play_copper)
+    #     state.apply_action(play_copper)
+    #     observation.set_from(state, player=0)
+    #     self.assertEqual(observation.dict['cards_in_play'],[2] + [0] * 32)
 
 
-# class DominionPlayerTurnTest(absltest.TestCase):
+class DominionPlayerTurnTest(absltest.TestCase):
 
-#     def test_players_firstTurn_starts_0coins_1actions_1buy(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         observation = game.make_py_observer()
-#         state = game.new_initial_state()
-#         observation.set_from(state, state.current_player())
-#         self.assertEqual(observation.dict['buys'][0], 1)
-#         self.assertEqual(observation.dict['actions'][0], 1)
-#         self.assertEqual(observation.dict['coins'][0], 0)
-#         self.assertEqual(observation.dict['TurnPhase'][0], dominion.TurnPhase.TREASURE_PHASE)
+    # def test_players_firstTurn_starts_0coins_1actions_1buy(self):
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     observation = game.make_py_observer()
+    #     state = game.new_initial_state()
+    #     observation.set_from(state, state.current_player())
+    #     self.assertEqual(observation.dict['buys'][0], 1)
+    #     self.assertEqual(observation.dict['actions'][0], 1)
+    #     self.assertEqual(observation.dict['coins'][0], 0)
+    #     self.assertEqual(observation.dict['TurnPhase'][0], dominion.TurnPhase.TREASURE_PHASE)
 
-#     def test_firstTurn_StartsTreasurePhase_InitiallegalAction_TreasureCardsAndEndPhase(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         observation = game.make_py_observer()
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         actions = state.legal_actions()
-#         copper_action = 1
-#         observation.set_from(state, player=0)
-#         # player starts with 0 action cards so we skip to Treasure_Phase
-#         self.assertEqual(observation.dict['TurnPhase'], [dominion.TurnPhase.TREASURE_PHASE])
-#         self.assertEqual(actions, [copper_action, dominion.END_PHASE_ACTION]);
+    # def test_firstTurn_StartsTreasurePhase_InitiallegalAction_TreasureCardsAndEndPhase(self):
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     observation = game.make_py_observer()
+    #     state = game.new_initial_state()
+    #     state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+    #     actions = state.legal_actions()
+    #     copper_action = 1
+    #     observation.set_from(state, player=0)
+    #     # player starts with 0 action cards so we skip to Treasure_Phase
+    #     self.assertEqual(observation.dict['TurnPhase'], [dominion.TurnPhase.TREASURE_PHASE])
+    #     self.assertEqual(actions, [copper_action, dominion.END_PHASE_ACTION]);
 
-#     def test_BuyPhase_ActionsAreThoseCardsThatCanBePurchased_AndEndPhase(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         observation = game.make_py_observer()
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         buy_copper = dominion.COPPER.id
-#         end_phase = dominion.END_PHASE_ACTION
-#         state.apply_action(buy_copper)
-#         state.apply_action(buy_copper)
-#         state.apply_action(buy_copper)
-#         state.apply_action(end_phase)
+    def test_BuyPhase_ActionsAreThoseCardsThatCanBePurchased_AndEndPhase(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        observation = game.make_py_observer()
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        buy_copper = dominion.COPPER.id
+        end_phase = dominion.END_PHASE_ACTION
+        state.apply_action(buy_copper)
+        state.apply_action(buy_copper)
+        state.apply_action(buy_copper)
+        state.apply_action(end_phase)
 
-#         actions = state.legal_actions()
-#         valid_actions = [dominion.COPPER.id, dominion.SILVER.id,dominion.CURSE.id,dominion.ESTATE.id, dominion.VILLAGE.id, dominion.MOAT.id,dominion.END_PHASE_ACTION]
-#         self.assertEqual(actions, valid_actions)
+        actions = state.legal_actions()
+        valid_actions = [dominion.COPPER.id, dominion.SILVER.id,dominion.CURSE.id,dominion.ESTATE.id, dominion.VILLAGE.id, dominion.MOAT.id,dominion.END_PHASE_ACTION]
+        self.assertEqual(actions, valid_actions)
 
-#     def test_Action_to_String(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         observation = game.make_py_observer()
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         self.assertEqual(state.action_to_string(dominion.COPPER.id), "Play Copper")
+    def test_Action_to_String(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        observation = game.make_py_observer()
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        self.assertEqual(state.action_to_string(dominion.COPPER.id), "Play Copper")
 
-#         player = state.get_player(0)
-#         player.coins = 3
-#         player.phase = dominion.TurnPhase.BUY_PHASE
+        player = state.get_player(0)
+        player.coins = 3
+        player.phase = dominion.TurnPhase.BUY_PHASE
 
-#         self.assertEqual(state.action_to_string(dominion.COPPER.id), "Buy and Gain Copper")
+        self.assertEqual(state.action_to_string(dominion.COPPER.id), "Buy and Gain Copper")
 
-#     # def test_ApplyAction_ExceptionRaised_WhenGameDone(self):
-#     #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#     #     state = game.new_initial_state()
-#     #     state.victory_piles[dominion.PROVINCE.name].qty = 0
-#     #     try: 
-#     #         state.apply_action(dominion.COPPER.id)
-#     #     except Exception as e:
-#     #         self.assertEqual(str(e), "Game is finished")
+    # def test_ApplyAction_ExceptionRaised_WhenGameDone(self):
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     state = game.new_initial_state()
+    #     state.victory_piles[dominion.PROVINCE.name].qty = 0
+    #     try: 
+    #         state.apply_action(dominion.COPPER.id)
+    #     except Exception as e:
+    #         self.assertEqual(str(e), "Game is finished")
 
-#     def test_ApplyAction_ExceptionRaised_WhenActionNotLegal(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         try:
-#             state.apply_action(dominion.SILVER.id)
-#         except Exception as e:
-#             self.assertEqual(str(e), "Action 2:Play Silver not in list of legal actions - 1:Play Copper, 34:End phase")
+    def test_ApplyAction_ExceptionRaised_WhenActionNotLegal(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        try:
+            state.apply_action(dominion.SILVER.id)
+        except Exception as e:
+            self.assertEqual(str(e), "Action 2:Play Silver not in list of legal actions - 1:Play Copper, 34:End phase")
 
-#     def test_canPlay_TreasurePhase_AutoEnd(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         initial_state = game.new_initial_state()
-#         initial_state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         # play all coppers in hand
-#         curr_player = initial_state.get_player(initial_state.current_player())
-#         for _ in range(4):
-#             initial_state.apply_action(dominion.COPPER.id)
-#         updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
-#         updtd_num_coppers_in_play = len(list(filter(lambda card: card.name is 'Copper', curr_player.cards_in_play)))
-#         self.assertEqual(curr_player.coins, 4)
-#         self.assertEqual(updtd_num_coppers_in_hand, 0)
-#         self.assertEqual(updtd_num_coppers_in_play,4)
-#         self.assertEqual(len(curr_player.hand), dominion._HAND_SIZE - 4)
+    def test_canPlay_TreasurePhase_AutoEnd(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        initial_state = game.new_initial_state()
+        initial_state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        # play all coppers in hand
+        curr_player = initial_state.get_player(initial_state.current_player())
+        for _ in range(4):
+            initial_state.apply_action(dominion.COPPER.id)
+        updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
+        updtd_num_coppers_in_play = len(list(filter(lambda card: card.name is 'Copper', curr_player.cards_in_play)))
+        self.assertEqual(curr_player.coins, 4)
+        self.assertEqual(updtd_num_coppers_in_hand, 0)
+        self.assertEqual(updtd_num_coppers_in_play,4)
+        self.assertEqual(len(curr_player.hand), dominion._HAND_SIZE - 4)
 
-#         # player plays all treasure cards, game will move onto BUY_PHASE automatically
-#         self.assertEqual(curr_player.phase, dominion.TurnPhase.BUY_PHASE)
+        # player plays all treasure cards, game will move onto BUY_PHASE automatically
+        self.assertEqual(curr_player.phase, dominion.TurnPhase.BUY_PHASE)
 
-#     def test_canPlay_TreasurePhase_EndPhase(self):
-#         # #play all coppers in hand - 1 + END_PHASE
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         curr_player = state.get_player(state.current_player())
-#         for _ in range(3):
-#             state.apply_action(dominion.COPPER.id)
-#         state.apply_action(dominion.END_PHASE_ACTION)
-#         updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
-#         updtd_num_coppers_in_play = len(list(filter(lambda card: card.name is 'Copper', curr_player.cards_in_play)))
-#         self.assertEqual(curr_player.coins,3)
-#         self.assertEqual(updtd_num_coppers_in_hand, 1)
-#         self.assertEqual(updtd_num_coppers_in_play, 3)
-#         self.assertEqual(curr_player.phase, dominion.TurnPhase.BUY_PHASE)
+    def test_canPlay_TreasurePhase_EndPhase(self):
+        # #play all coppers in hand - 1 + END_PHASE
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        curr_player = state.get_player(state.current_player())
+        for _ in range(3):
+            state.apply_action(dominion.COPPER.id)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
+        updtd_num_coppers_in_play = len(list(filter(lambda card: card.name is 'Copper', curr_player.cards_in_play)))
+        self.assertEqual(curr_player.coins,3)
+        self.assertEqual(updtd_num_coppers_in_hand, 1)
+        self.assertEqual(updtd_num_coppers_in_play, 3)
+        self.assertEqual(curr_player.phase, dominion.TurnPhase.BUY_PHASE)
 
-#     def test_can_buy_treasure_card(self):
-#         # play all coppers in hand and buy a silver card
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         curr_player = state.get_player(state.current_player())
-#         num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
+    # def test_can_buy_treasure_card(self):
+    #     # play all coppers in hand and buy a silver card
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     state = game.new_initial_state()
+    #     state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+    #     curr_player = state.get_player(state.current_player())
+    #     num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
 
-#         for _ in range(num_coppers):
-#             state.apply_action(dominion.COPPER.id)
-#         state.apply_action(dominion.SILVER.id)
-#         self.assertIn(dominion.SILVER.name, list(map(lambda card: card.name, curr_player.draw_pile)))
-#         self.assertEqual(state.treasure_piles[dominion.SILVER.name].qty, 39)
-#         self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.END_TURN)
-#         self.assertEqual(state.get_player(0).victory_points, 3)
-#         self.assertEqual(state.current_player(), 1)
+    #     for _ in range(num_coppers):
+    #         state.apply_action(dominion.COPPER.id)
+    #     state.apply_action(dominion.SILVER.id)
+    #     self.assertIn(dominion.SILVER.name, list(map(lambda card: card.name, curr_player.draw_pile)))
+    #     self.assertEqual(state.treasure_piles[dominion.SILVER.name].qty, 39)
+    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.END_TURN)
+    #     self.assertEqual(state.get_player(0).victory_points, 3)
+    #     self.assertEqual(state.current_player(), 1)
 
-#     def test_can_buy_victory_card(self):
-#         # play all coppers in hand and buy a victory card
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         curr_player = state.get_player(state.current_player())
-#         for _ in range(4):
-#             state.apply_action(dominion.COPPER.id)
-#         state.apply_action(dominion.ESTATE.id)
-#         estate = dominion.ESTATE.name
+    # def test_can_buy_victory_card(self):
+    #     # play all coppers in hand and buy a victory card
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     state = game.new_initial_state()
+    #     state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+    #     curr_player = state.get_player(state.current_player())
+    #     for _ in range(4):
+    #         state.apply_action(dominion.COPPER.id)
+    #     state.apply_action(dominion.ESTATE.id)
+    #     estate = dominion.ESTATE.name
 
-#         self.assertIn(dominion.ESTATE.name, list(map(lambda card: card.name, curr_player.draw_pile)))
-#         self.assertEqual(state.victory_piles[dominion.ESTATE.name].qty, 7)
-#         self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.END_TURN)
-#         self.assertEqual(state.get_player(0).victory_points, 4)
-#         self.assertEqual(state.current_player(), 1)
+    #     self.assertIn(dominion.ESTATE.name, list(map(lambda card: card.name, curr_player.draw_pile)))
+    #     self.assertEqual(state.victory_piles[dominion.ESTATE.name].qty, 7)
+    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.END_TURN)
+    #     self.assertEqual(state.get_player(0).victory_points, 4)
+    #     self.assertEqual(state.current_player(), 1)
 
-#     def test_can_buy_kingdom_card(self):
-#         # play all coppers in hand and buy a kingdom_card
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         curr_player = state.get_player(state.current_player())
-#         for _ in range(4):
-#             state.apply_action(dominion.COPPER.id)
+    # def test_can_buy_kingdom_card(self):
+    #     # play all coppers in hand and buy a kingdom_card
+    #     game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+    #     state = game.new_initial_state()
+    #     state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+    #     curr_player = state.get_player(state.current_player())
+    #     for _ in range(4):
+    #         state.apply_action(dominion.COPPER.id)
 
-#         state.apply_action(dominion.MOAT.id)
-#         self.assertIn(dominion.MOAT.name, list(map(lambda card: card.name, curr_player.draw_pile)))
-#         self.assertEqual(state.kingdom_piles[dominion.MOAT.name].qty, 9)
-#         self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.END_TURN)
+    #     state.apply_action(dominion.MOAT.id)
+    #     self.assertIn(dominion.MOAT.name, list(map(lambda card: card.name, curr_player.draw_pile)))
+    #     self.assertEqual(state.kingdom_piles[dominion.MOAT.name].qty, 9)
+    #     self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.END_TURN)
 
-#     def test_clean_up_phase(self):
-#         game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
-#         state = game.new_initial_state()
-#         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
-#         curr_player = state.get_player(0)
-#         #skip treasure + buy phase
-#         state.apply_action(dominion.END_PHASE_ACTION)
-#         state.apply_action(dominion.END_PHASE_ACTION)
+    def test_clean_up_phase(self):
+        game = dominion.DominionGame(dominion._DEFAULT_PARAMS)
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
+        curr_player = state.get_player(0)
+        #skip treasure + buy phase
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.END_PHASE_ACTION)
 
-#         self.assertEqual(curr_player.actions, 1)
-#         self.assertEqual(curr_player.buys, 1)
-#         self.assertEqual(curr_player.coins, 0)
-#         # prior hand is moved to discard pile
-#         self.assertEqual(5, len(curr_player.discard_pile))
-#         # player draws next hand from draw pile
-#         self.assertEqual(5, len(curr_player.hand))
-#         self.assertEqual(0, len(curr_player.draw_pile))
+        self.assertEqual(curr_player.actions, 1)
+        self.assertEqual(curr_player.buys, 1)
+        self.assertEqual(curr_player.coins, 0)
+        # prior hand is moved to discard pile
+        self.assertEqual(5, len(curr_player.discard_pile))
+        # player draws next hand from draw pile
+        self.assertEqual(5, len(curr_player.hand))
+        self.assertEqual(0, len(curr_player.draw_pile))
 
 class DominionKingdomCardEffects(absltest.TestCase):
     def test_village(self):
@@ -691,7 +691,7 @@ class DominionKingdomCardEffects(absltest.TestCase):
         self.assertEqual(state.current_player(),0)
         self.assertTrue(state.effect_runner.active)
 
-        effect = dominion.TrashAndGainEffect(2,False)
+        effect = dominion.TrashAndGainCostEffect(2,False)
 
         self.assertEqual(state.effect_runner.effects[0],effect)
         
@@ -716,7 +716,409 @@ class DominionKingdomCardEffects(absltest.TestCase):
 
         self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
 
+    def test_moneylender_copper_in_hand_trash_copper(self):
+        """player optionally trashes a treasure card in their hand. If they do player gains n_coins"""
 
+        kingdom_cards = "Moat, Village, Festival, Smithy, Moneylender, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 4 coins to buy a moneylender
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy moneylender
+        state.apply_action(dominion.MONEYLENDER.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play moneylender
+        state.load_hand([dominion.MONEYLENDER.name,dominion.COPPER.name])
+        state.apply_action(dominion.MONEYLENDER.id)
+
+        self.assertEqual(state.current_player(),0)
+
+        effect = dominion.TrashTreasureAndGainCoinEffect(dominion.COPPER,3)
+
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.effects[0],effect)
+        
+        self.assertEqual(state.legal_actions(),[dominion.COPPER.id,dominion.END_PHASE_ACTION])
+
+        #trash copper in hand
+        state.apply_action(dominion.COPPER.id)
+
+
+        self.assertEqual(len(state.get_current_player().hand),3)
+        self.assertEqual(len(state.get_current_player().trash_pile),1)
+
+        self.assertIn(dominion.COPPER,state.get_current_player().trash_pile)
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(state.get_current_player().coins,3)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+
+    def test_moneylender_copper_in_hand_no_trash(self):
+        """player optionally trashes a treasure card in their hand. If they do player gains n_coins"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Moneylender, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 4 coins to buy a moneylender
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy moneylender
+        state.apply_action(dominion.MONEYLENDER.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play moneylender
+        state.load_hand([dominion.MONEYLENDER.name,dominion.COPPER.name])
+        state.apply_action(dominion.MONEYLENDER.id)
+
+        self.assertEqual(state.current_player(),0)
+
+        effect = dominion.TrashTreasureAndGainCoinEffect(dominion.COPPER,3)
+
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.effects[0],effect)
+        
+        self.assertEqual(state.legal_actions(),[dominion.COPPER.id,dominion.END_PHASE_ACTION])
+
+        #trash copper in hand
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+
+        self.assertEqual(len(state.get_current_player().hand),4)
+        self.assertEqual(len(state.get_current_player().trash_pile),0)
+
+        self.assertNotIn(dominion.COPPER,state.get_current_player().trash_pile)
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(state.get_current_player().coins,0)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+
+    def test_moneylender_copper_not_in_hand(self):
+        """player optionally trashes a treasure card in their hand. If they do player gains n_coins"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Moneylender, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 4 coins to buy a moneylender
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy moneylender
+        state.apply_action(dominion.MONEYLENDER.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play moneylender
+        state.get_current_player().draw_pile += [dominion.ESTATE] * 4
+        state.load_hand([dominion.MONEYLENDER.name,dominion.ESTATE.name,dominion.ESTATE.name,dominion.ESTATE.name,dominion.ESTATE.name])
+        state.apply_action(dominion.MONEYLENDER.id)
+
+        effect = dominion.TrashTreasureAndGainCoinEffect(dominion.COPPER,3)
+
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.effects[0],None)
+        self.assertEqual(len(state.get_current_player().hand),4)
+        self.assertEqual(len(state.get_current_player().trash_pile),0)
+        self.assertEqual(state.get_current_player().coins,0)
+        self.assertEqual(state.get_current_player().phase,dominion.TurnPhase.TREASURE_PHASE)
+    def test_poacher_no_empty_supply_pile(self):
+        """
+        player gains a card , an action, a coin, and discards a card per empty supply pile"""
+        """
+        You draw your one card before discarding.
+        If there are no empty piles, you do not discard. If there is one empty pile, you discard one card; if there are two empty piles, you discard two cards, and so on. This includes all Supply piles, including Curses, Coppers, Poacher itself, etc.
+        If you do not have enough cards to discard, just discard the rest of your hand. 
+        """
+        kingdom_cards = "Moat, Village, Festival, Smithy, Poacher, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 4 coins to buy a poacher
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy poacher
+        state.apply_action(dominion.POACHER.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play poacher
+        state.load_hand([dominion.POACHER.name])
+        state.apply_action(dominion.POACHER.id)
+
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.effects[0],None)
+        self.assertEqual(len(state.get_current_player().hand),5)
+        self.assertEqual(state.get_current_player().coins,1)
+        self.assertEqual(state.get_current_player().actions,1)
+
+    def test_cellar(self):
+        """
+        player gains 1 action, discards n cards, and draws n cards
+        """
+        kingdom_cards = "Moat, Village, Festival, Smithy, Cellar, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 4 coins to buy a poacher
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy cellar
+        state.apply_action(dominion.CELLAR.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play cellar
+        state.load_hand([dominion.CELLAR.name])
+        state.apply_action(dominion.CELLAR.id)
+        effect = dominion.CellarEffect()
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.get_current_player().actions,1)
+
+        # discard 2 cards
+        num_cards_in_discard = len(state.get_current_player().discard_pile)
+        for _ in range(2):
+            card_to_discard = random.choice(state.legal_actions()[:-1])
+            state.apply_action(card_to_discard)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        self.assertEqual(len(state.get_current_player().hand),4)
+        self.assertFalse(state.effect_runner.active)
+    
+    def test_mine(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Cellar, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 5 coins to buy a mine
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.id)
+        #buy mine
+        state.apply_action(dominion.MINE.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play mine
+        state.load_hand([dominion.MINE.name,dominion.COPPER.name])
+        state.apply_action(dominion.MINE.id)
+        effect = dominion.TrashTreasureAndGainTreasure(n_coins = 3)
+        self.assertTrue(state.effect_runner.active)
+        self.assertTrue(state.effect_runner.effects[0],effect)
+
+        self.assertEqual([dominion.COPPER.id,dominion.END_PHASE_ACTION],state.legal_actions())
+        #trash_copper
+        state.apply_action(dominion.COPPER.id)
+        self.assertEqual([dominion.COPPER.id,dominion.SILVER.id],state.legal_actions())
+        state.apply_action(dominion.SILVER.id)
+        self.assertIn(dominion.SILVER,state.get_current_player().hand)
+        self.assertFalse(state.effect_runner.active)
+    def test_vassal_no_action_cards(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Vassal, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 3 coins to buy a vassal
+        state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
+        
+        for _ in range(3):
+            state.apply_action(dominion.COPPER.id)
+        #buy vassal
+        state.apply_action(dominion.VASSAL.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play vassal
+        state.load_hand([dominion.VASSAL.name])
+        state.apply_action(dominion.VASSAL.id)
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(state.get_current_player().coins,2)
+    
+    def test_vassal_play_action_card(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Vassal, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 3 coins to buy a vassal
+        state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
+        
+        for _ in range(3):
+            state.apply_action(dominion.COPPER.id)
+        #buy vassal
+        state.apply_action(dominion.VASSAL.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play vassal
+        state.load_hand([dominion.VASSAL.name])
+        state.get_current_player().draw_pile.insert(0,dominion.VILLAGE)
+        state.apply_action(dominion.VASSAL.id)
+        self.assertTrue(state.effect_runner.active)
+        effect = dominion.VassalEffect()
+        self.assertEqual(state.effect_runner.effects[0],effect)
+        self.assertEqual(state.legal_actions(),[dominion.VILLAGE.id,dominion.END_PHASE_ACTION])
+        #play village
+        state.apply_action(dominion.VILLAGE.id)
+        self.assertFalse(state.effect_runner.active)
+        # assert village effects
+        self.assertEqual(state.get_current_player().actions,3)
+        self.assertEqual(len(state.get_current_player().hand),5)
+    def test_vassal_do_not_play_action_card(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Vassal, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 3 coins to buy a vassal
+        state.load_hand(['Copper','Copper','Copper','Estate','Estate'])
+        
+        for _ in range(3):
+            state.apply_action(dominion.COPPER.id)
+        #buy vassal
+        state.apply_action(dominion.VASSAL.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play vassal
+        state.load_hand([dominion.VASSAL.name])
+        state.get_current_player().draw_pile.insert(0,dominion.VILLAGE)
+        state.apply_action(dominion.VASSAL.id)
+        self.assertTrue(state.effect_runner.active)
+        effect = dominion.VassalEffect()
+        self.assertEqual(state.effect_runner.effects[0],effect)
+        self.assertEqual(state.legal_actions(),[dominion.VILLAGE.id,dominion.END_PHASE_ACTION])
+        #play village
+        state.apply_action(dominion.END_PHASE_ACTION)
+        self.assertIn(dominion.VILLAGE,state.get_current_player().discard_pile)
+        self.assertFalse(state.effect_runner.active)
+    def test_council_room(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Vassal, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 5 coins to buy a council room
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.id)
+        #buy COUNCIL_ROOM
+        state.apply_action(dominion.COUNCIL_ROOM.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play COUNCIL_ROOM
+        state.load_hand([dominion.COUNCIL_ROOM.name])
+        state.apply_action(dominion.COUNCIL_ROOM.id)
+
+        #each other play gains a card to hand
+        for p in state.other_players(state.get_current_player()):
+            self.assertEqual(len(state.get_player(p).hand),6)
+
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(len(state.get_current_player().hand),5)
+        self.assertEqual(state.get_current_player().buys,2)
+    
+    def test_artisan(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Artisan, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        curr_player.draw_pile += [dominion.GOLD,dominion.GOLD]
+        #must have 6 coins to buy an artisan
+        state.load_hand(['Gold','Gold','Estate','Estate','Copper'])
+        
+        for _ in range(2):
+            state.apply_action(dominion.GOLD.id)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        #buy ARTISAN
+        state.apply_action(dominion.ARTISAN.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play ARTISAN
+        state.load_hand([dominion.ARTISAN.name,dominion.COPPER.name])
+        state.apply_action(dominion.ARTISAN.id)
+
+        self.assertTrue(state.effect_runner.active)
+        cards_cost_up_to_5 = [1, 2, 4, 5, 6, 8, 10, 11, 12, 16, 25, 27, 32, 33]
+        self.assertEqual(state.legal_actions(),cards_cost_up_to_5) 
+
+        #choose to gain a silver
+        state.apply_action(dominion.SILVER.id)
+        self.assertIn(dominion.SILVER,state.get_current_player().hand)
+        cards_in_hand = list(set(list(map(lambda card: card.id, state.get_current_player().hand))))
+        self.assertEqual(state.legal_actions(),cards_in_hand)
+
+        state.apply_action(dominion.COPPER.id)
+        self.assertFalse(state.effect_runner.active)
+
+
+
+class DominionPoacherEffect(absltest.TestCase):
+    def test_poacher_1_empty_supply_pile(self):
+        """
+        player gains a card , an action, a coin, and discards a card per empty supply pile"""
+        """
+        You draw your one card before discarding.
+        If there are no empty piles, you do not discard. If there is one empty pile, you discard one card; if there are two empty piles, you discard two cards, and so on. This includes all Supply piles, including Curses, Coppers, Poacher itself, etc.
+        If you do not have enough cards to discard, just discard the rest of your hand. 
+        """
+        kingdom_cards = "Moat, Village, Festival, Smithy, Poacher, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #mock 1 supply pile empty
+        state._all_supply_piles[dominion.COPPER.name].qty = 0
+
+        #must have 4 coins to buy a poacher
+        state.load_hand(['Copper','Copper','Copper','Copper','Estate'])
+        
+        for _ in range(4):
+            state.apply_action(dominion.COPPER.id)
+        #buy poacher
+        state.apply_action(dominion.POACHER.id)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play poacher
+        state.load_hand([dominion.POACHER.name,dominion.ESTATE.name])
+        state.apply_action(dominion.POACHER.id)
+
+        effect = dominion.PoacherEffect()
+
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.effects[0],effect)
+        self.assertEqual(len(state.get_current_player().hand),5)
+        self.assertEqual(state.get_current_player().coins,1)
+        self.assertEqual(state.get_current_player().actions,1)
+
+        state.apply_action(dominion.ESTATE.id)
+
+        self.assertIn(dominion.ESTATE,state.get_current_player().discard_pile)
+        self.assertTrue(state.effect_runner.active)
 
 
 

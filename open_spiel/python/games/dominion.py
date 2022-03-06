@@ -187,7 +187,7 @@ class GainCardToDiscardPileEffect(Effect):
     def run(self,state,player):
         state._all_supply_piles[self.card.name].qty -= 1
         player.discard_pile.append(self.card)
-        
+
 
 class OpponentsGainCardEffect(Effect):
     def __init__(self,card):
@@ -198,6 +198,15 @@ class OpponentsGainCardEffect(Effect):
         effect = GainCardToDiscardPileEffect(self.card)
         for opp in state.other_players(player):
             effect.run(state,state.get_player(opp))
+
+class OpponentsGainCardToHandEffect(Effect):
+    def __init__(self,num_cards=1):
+        self.num_cards = num_cards
+    def __eq__(self,other):
+        return self.num_cards == other.num_cards
+    def run(self,state,player):
+        for opp in state.other_players(player):
+            state.get_player(opp)._draw_hand(1)
 
 
 class ChoosePileToGainEffect(Effect):
@@ -224,7 +233,7 @@ class ChoosePileToGainEffect(Effect):
         state.effect_runner.initiator = player.id
         state.effect_runner.add_effect(player.id,self)        
 
-class TrashAndGainEffect(Effect):
+class TrashAndGainCostEffect(Effect):
     """trash a card from your hand. gain a card costing up to 2 more than it. E.g. remodel""" 
     def __init__(self, add_cost: int, gain_exact_cost: bool):
         self.add_cost = add_cost
@@ -263,8 +272,185 @@ class TrashAndGainEffect(Effect):
             state.effect_runner.effects[player.id] = None
     def run(self,state,player):
         state.effect_runner.initiator = player.id
-        state.effect_runner.add_effect(player.id,self)        
+        state.effect_runner.add_effect(player.id,self)   
 
+class TrashTreasureAndGainCoinEffect(Effect):
+    """trash a treasure card from your hand. gain n coins E.g. moneylender""" 
+    def __init__(self, treasure_card: TreasureCard, n_coins: int, optional_trash = True):
+        self.treasure_card = treasure_card
+        self.n_coins = n_coins
+        self.optional_trash = optional_trash
+    
+    def __eq__(self,other):
+        return self.treasure_card == other.treasure_card and  \
+            self.n_coins ==  other.n_coins and \
+            self.optional_trash == other.optional_trash
+    
+    def legal_actions(self,state,player):
+        return [self.treasure_card.id,END_PHASE_ACTION] if self.optional_trash else [self.treasure_card.id]
+        
+    def apply_action(self, state, action):
+        #if user decides not to trash the treasure_card from their hand do nothing
+        player = state.get_current_player()
+        if action is END_PHASE_ACTION:
+            state.effect_runner.effects[player.id] = None
+            return
+        card = _ALL_CARDS[action-1]        
+        player.trash_pile.append(card)
+        player.hand.remove(card)
+        player.coins += self.n_coins
+        state.effect_runner.effects[player.id] = None
+
+    def run(self,state,player):
+        # if player does not have the treasure card do nothing
+        if self.treasure_card in player.hand:
+            state.effect_runner.initiator = player.id
+            state.effect_runner.add_effect(player.id,self)  
+
+class PoacherEffect(Effect):
+    def __init__(self):
+        pass
+    def __eq__(self,other):
+        return True
+    def legal_actions(self,state,player):
+        return list(set(list(map(lambda card: card.id, player.hand))))
+    
+    def apply_action(self,state,action):
+        player = state.get_current_player()
+        card = _ALL_CARDS[action-1]
+        player.hand.remove(card)
+        player.discard_pile.append(card)
+        if len(player.hand) == self.num_empty_supply_piles:
+            state.effect_runner.effects[player.id] = None
+
+    def run(self,state,player):
+        self.num_empty_supply_piles = len(list(filter(lambda pile: pile.qty == 0, state._all_supply_piles.values())))
+        if self.num_empty_supply_piles is 0:
+            return
+        else:
+            state.effect_runner.initiator = player.id
+            state.effect_runner.add_effect(player.id,self)
+
+class CellarEffect(Effect):
+    """+1 Action. Discard any number of cards, then draw that many."""
+    def __init__(self):
+        self.num_cards_discarded = 0
+        self.cards_to_discard = []
+    def __eq__(self,other):
+        return True
+    def legal_actions(self,state,player):
+        return list(set(list(map(lambda card: card.id, player.hand)))) + [END_PHASE_ACTION]
+    def apply_action(self,state,action):
+        if action is END_PHASE_ACTION:
+            player = state.get_current_player()
+            player.discard_pile += self.cards_to_discard
+            player._draw_hand(self.num_cards_discarded)
+            state.effect_runner.effects[player.id] = None
+        else:
+            card = _ALL_CARDS[action-1]
+            player = state.get_current_player()
+            player.hand.remove(card)
+            self.num_cards_discarded += 1
+            self.cards_to_discard.append(card)
+    def run(self,state,player):
+        state.effect_runner.initiator = player.id
+        state.effect_runner.add_effect(player.id,self)
+
+class TrashTreasureAndGainTreasure(Effect):
+    """Trash and Gain a Treasure from your hand. Gain a treasure to your hand costing up to n_coins more than it"""
+    def __init__(self,n_coins):
+        self.n_coins = n_coins
+        self.trashed_card = None
+    def __eq__(self,other):
+        return self.n_coins == other.n_coins
+    def legal_actions(self,state,player):
+        if self.trashed_card is None:
+            return list(set(list(map(lambda card: card.id, filter(lambda card: isinstance(card,TreasureCard),player.hand))))) + [END_PHASE_ACTION]
+        else:
+            gainable_treasure_cards = list(map(lambda pile: pile.card.id,filter(lambda pile: pile.qty > 0 and pile.card.cost <= self.trashed_card.cost + self.n_coins,state.treasure_piles.values())))
+            return gainable_treasure_cards
+    def apply_action(self,state,action):
+        if self.trashed_card is None:
+            if action is END_PHASE_ACTION:
+                player = state.get_current_player()
+                state.effect_runner.effects[player.id] = None
+            else:
+                card = _ALL_CARDS[action-1]
+                player = state.get_current_player()
+                player.hand.remove(card)
+                player.trash_pile.append(card)
+                self.trashed_card = card
+        else:
+            card = _ALL_CARDS[action-1]
+            player = state.get_current_player()
+            player.hand.append(card)
+            state.effect_runner.effects[player.id] = None
+
+
+    def run(self,state,player):
+        has_treasure_card = len(list(filter(lambda card: isinstance(card,TreasureCard),player.hand)))
+        if has_treasure_card:
+            state.effect_runner.initiator = player.id
+            state.effect_runner.add_effect(player.id,self)
+
+class VassalEffect(Effect):
+    """If the top of your draw pile is an action, vassal can play it; otherwise, the top card is discarded"""
+    def __init__(self):
+        self.top_of_deck = None
+    def __eq__(self,other):
+        return True
+    def legal_actions(self,state,player):
+        return [self.top_of_deck.id,END_PHASE_ACTION]
+    def apply_action(self,state,action):
+        player = state.get_current_player()
+        if action is END_PHASE_ACTION:
+            player.discard_pile.append(self.top_of_deck)
+            state.effect_runner.effects[player.id] = None
+        else:
+            card = _ALL_CARDS[action-1]
+            #player will have played 1 action card by playing the vassal, and will lose 1 action for playing the ActionCard. Need to add 2 to offset this
+            player.actions += 2
+            player.hand.append(card)
+            state.play_action_card(card)
+            state.effect_runner.effects[player.id] = None
+
+    def run(self,state,player):
+        if len(player.draw_pile) is 0:
+            player._add_discard_pile_to_draw_pile()
+        self.top_of_deck = player.draw_pile.pop(0)
+        if isinstance(self.top_of_deck,ActionCard):
+            state.effect_runner.initiator = player.id
+            state.effect_runner.add_effect(player.id,self)
+        else:
+            player.discard_pile.append(self.top_of_deck)
+        
+class ArtisanEffect(Effect):
+    def __init__(self):
+        self.n_coins = 5
+        self.card_to_gain = None
+    def legal_actions(self,state,player):
+        if self.card_to_gain is None:
+            gainable_cards = list(map(lambda pile: pile.card.id,filter(lambda pile: pile.qty > 0 and pile.card.cost <= self.n_coins,state._all_supply_piles.values())))
+            gainable_cards.sort()
+            return gainable_cards
+        else:
+            return list(set(list(map(lambda card: card.id, player.hand))))
+    def apply_action(self,state,action):
+        player = state.get_current_player()
+        if self.card_to_gain is None:
+            card = _ALL_CARDS[action-1]
+            state._all_supply_piles[card.name].qty -=1 
+            self.card_to_gain = card
+            player.hand.append(self.card_to_gain)
+        else:
+            card = _ALL_CARDS[action-1]
+            player.hand.remove(card)
+            player.draw_pile.append(card)
+            state.effect_runner.effects[player.id] = None
+    def run(self,state,player):
+        state.effect_runner.initiator = player.id
+        state.effect_runner.add_effect(player.id,self)
+    
 """ TREASURE CARDS """
 COPPER = TreasureCard(id=1, name='Copper', cost=0, coins=1)
 SILVER = TreasureCard(id=2, name='Silver', cost=3, coins=2)
@@ -293,18 +479,20 @@ WORKSHOP = ActionCard(id=17, name='Workshop', cost=3, effect_list=[ChoosePileToG
 ## ---------------------------------------------------------
 
 BANDIT = AttackCard(id=18, name='Bandit', cost=5, effect_list=[GainCardToDiscardPileEffect(GOLD)], coins=0, add_cards=0, global_trigger=None)
-REMODEL = ActionCard(id=19, name='Remodel', cost=4, effect_list=[TrashAndGainEffect(2,False)])
+REMODEL = ActionCard(id=19, name='Remodel', cost=4, effect_list=[TrashAndGainCostEffect(2,False)])
+MONEYLENDER = ActionCard(id=21, name='Moneylender', cost=4, effect_list=[TrashTreasureAndGainCoinEffect(treasure_card=COPPER,n_coins=3)])
+POACHER = ActionCard(id=22, name='Poacher', cost=4, add_cards=1, add_actions=1, coins=1,effect_list=[PoacherEffect()])
+CELLAR = ActionCard(id=24, name='Cellar', cost=2,add_actions=1,effect_list=[CellarEffect()])
+MINE = ActionCard(id=25, name='Mine', cost=5, effect_list=[TrashTreasureAndGainTreasure(n_coins=3)])
+VASSAL = ActionCard(id=26, name='Vassal', cost=3, coins=2, effect_list=[VassalEffect()])
+COUNCIL_ROOM = ActionCard(id=27, name='Council Room', cost=5, add_cards=4, add_buys=1, effect_list=[OpponentsGainCardToHandEffect(num_cards=1)])
+ARTISAN = ActionCard(id=28, name='Artisan', cost=6, effect_list=[ArtisanEffect()])
 
 
-THRONE_ROOM = ActionCard(id=20, name='Throne Room', cost=4, effect_fn=None)
-MONEYLENDER = ActionCard(id=21, name='Moneylender', cost=4, effect_fn=None)
-POACHER = ActionCard(id=22, name='Poacher', cost=4, add_cards=4, add_actions=1, coins=1, effect_fn=None)
-MERCHANT = ActionCard(id=23, name='Merchant', cost=3, add_cards=1, add_actions=1, effect_fn=None)
-CELLAR = ActionCard(id=24, name='Cellar', cost=2, effect_fn=None)
-MINE = ActionCard(id=25, name='Mine', cost=5, effect_fn=None)
-VASSAL = ActionCard(id=26, name='Vassal', cost=3, coins=2, effect_fn=None)
-COUNCIL_ROOM = ActionCard(id=27, name='Council Room', cost=5, add_cards=4, add_buys=1, effect_fn=None)
-ARTISAN = ActionCard(id=28, name='Artisan', cost=6, effect_fn=None)
+MERCHANT = ActionCard(id=23, name='Merchant', cost=3, add_cards=1, add_actions=1, effect_fn=None) # todo
+THRONE_ROOM = ActionCard(id=20, name='Throne Room', cost=4, effect_fn=None) # todo
+
+
 BUREAUCRAT = ActionCard(id=29, name='Bureaucrat', cost=4, effect_fn=None)
 SENTRY = ActionCard(id=30, name='Sentry', cost=5, add_cards=1, add_actions=1, effect_fn=None)
 HARBINGER = ActionCard(id=31, name='Harbinger', cost=3, add_cards=1, add_actions=1, effect_list=[])
@@ -402,6 +590,8 @@ class Player(object):
         if len(self.hand) is 0:
             self.hand = self.draw_pile[0:num_cards]
         else:
+            if len(self.draw_pile) < num_cards:
+                self._add_discard_pile_to_draw_pile()
             self.hand += self.draw_pile[0:num_cards]
         self.draw_pile = self.draw_pile[num_cards:len(self.draw_pile)]
 
@@ -496,8 +686,6 @@ class Player(object):
         # cleanup-phase
         self.cards_in_play.clear()
         self._add_hand_to_discard_pile()
-        if len(self.draw_pile) < 5:
-            self._add_discard_pile_to_draw_pile()
         self._draw_hand()
         self.actions = 1
         self.coins = 0
