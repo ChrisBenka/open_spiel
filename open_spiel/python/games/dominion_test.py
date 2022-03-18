@@ -1091,6 +1091,64 @@ class DominionKingdomCardEffects(absltest.TestCase):
         state.apply_action(dominion.COPPER.play)
         self.assertFalse(state.effect_runner.active)
 
+    def test_sentry(self):
+        kingdom_cards = "Moat, Village, Festival, Sentry, Artisan, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        state.get_current_player().draw_pile += [dominion.GOLD] * 2 + [dominion.VILLAGE] * 1
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Copper'])
+
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.SENTRY.buy)
+
+        #skip next player
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        state.load_hand(['Sentry','Estate','Estate','Gold','Gold'])
+        state.apply_action(dominion.SENTRY.play)
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.active_effect,dominion.SentryEffect)
+        top_two_cards = state.effect_runner.active_effect.top_two_cards
+        expected_actions = [top_two_cards[0].discard,top_two_cards[0].trash,top_two_cards[1].discard,top_two_cards[1].trash,dominion.END_PHASE_ACTION]
+        expected_actions.sort()
+        self.assertEqual(state.legal_actions(),expected_actions)
+
+        for _ in range(2):
+            random_action = random.choice(state.legal_actions()[:-1])
+            state.apply_action(random_action)
+        self.assertFalse(state.effect_runner.active)
+    
+    def test_harbinger(self):
+        kingdom_cards = "Moat, Village, Harbinger, Sentry, Artisan, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Estate', 'Estate'])
+
+        for _ in range(3):
+            state.apply_action(dominion.COPPER.play)
+            
+        state.apply_action(dominion.HARBINGER.buy)
+
+        #skip next player
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        state.load_hand(['Harbinger'])
+        state.apply_action(dominion.HARBINGER.play)
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.effect_runner.active_effect,dominion.HarbingerEffect)
+        expected_actions = list(set(list(map(lambda card: card.gain, state.get_current_player().discard_pile)))) + [dominion.END_PHASE_ACTION]
+        expected_actions.sort()
+        self.assertEqual(state.legal_actions(),expected_actions)
+
+        state.apply_action(random.choice(state.legal_actions()[:-1]))
+        self.assertFalse(state.effect_runner.active)
+
+
+
+
 
 class DominionPoacherEffect(absltest.TestCase):
     def test_poacher_1_empty_supply_pile(self):

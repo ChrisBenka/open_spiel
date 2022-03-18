@@ -618,8 +618,15 @@ class SentryEffect(Effect):
         self.num_cards_trashed_or_discarded = 0
         self.top_two_cards = []
     
+    def __eq__(self,other):
+        return True
+
     def legal_actions(self, state, player):
-        return list(map(lambda card: card.discard,player.hand)) + list(map(lambda card: card.trash)) + [END_PHASE_ACTION]
+        discardable_cards = list(set([card.discard for card in self.top_two_cards]))
+        trashable_cards = list(set([card.trash for card in self.top_two_cards]))
+        all_cards = discardable_cards + trashable_cards + [END_PHASE_ACTION]
+        all_cards.sort()
+        return all_cards
 
     def apply_action(self, state, action):
         player = state.get_current_player()
@@ -632,6 +639,7 @@ class SentryEffect(Effect):
             state.effect_runner.effects[player.id] = None
             return 
         player.draw_pile.remove(card)
+        self.top_two_cards.remove(card)
         self.num_cards_trashed_or_discarded += 1
         if self.num_cards_trashed_or_discarded is len(self.top_two_cards):
             state.effect_runner.effects[player.id] = None
@@ -647,13 +655,16 @@ class SentryEffect(Effect):
 class HarbingerEffect(Effect):
     def __init__(self):
         self.name = "Harbinger"
-        pass
+
+    def __eq__(self,other):
+        return True
 
     def legal_actions(self, state, player):
-        return list(set(list(lambda card: card.gain, player.discard_pile))) + [END_PHASE_ACTION]
-    
+        actions = list(set(list(map(lambda card: card.gain, player.discard_pile)))) + [END_PHASE_ACTION]
+        actions.sort()
+        return actions
     def action_to_string(self,action):
-        return f"{_ALL_CARDS[action-1].action_to_string(action)} to draw pile from discard_pile" if action is not END_PHASE_ACTION else f"End {self.name}"
+        return f"{_get_card(action).action_to_string(action)} to draw pile from discard_pile" if action is not END_PHASE_ACTION else f"End {self.name}"
 
     def apply_action(self, state, action):
         player = state.get_current_player()
