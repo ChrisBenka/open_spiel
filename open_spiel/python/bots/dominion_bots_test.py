@@ -125,6 +125,27 @@ class BigMoneyBot(absltest.TestCase):
 
         expected_actions = [dominion.COPPER.play] * 2 + [dominion.GOLD.play] * 2 + [dominion.PROVINCE.buy]
         np.testing.assert_array_equal(expected_actions,actions)
+    
+    def test_treasure_card_not_avail_for_purchase(self):
+        game = pyspiel.load_game(FLAGS.game, {"num_players": FLAGS.num_players,"kingdom_cards": FLAGS.kingdom_cards})
+        bots = [
+            dominion_bots.BigMoneyBot(0),
+            dominion_bots.BigMoneyBot(1)
+        ]
+        state = game.new_initial_state()
+        #mock draw_pile and hand
+        state.get_current_player().draw_pile += [dominion.SILVER] * 2
+        state.load_hand(['Copper','Copper','Copper','Silver','Silver'])
+        
+        state.treasure_piles[dominion.GOLD.name].qty = 0
+        actions = []
+        while state.current_player() is 0:
+            action = bots[0].step(state)
+            state.apply_action(action)
+            actions.append(action)
+
+        expected_actions = [dominion.COPPER.play] * 3 + [dominion.SILVER.play] * 2 + [dominion.END_PHASE_ACTION]
+        np.testing.assert_array_equal(expected_actions,actions)
 
 if __name__ == "__main__":
     absltest.main()
