@@ -1033,6 +1033,7 @@ class DominionGameState(pyspiel.State):
         self._all_supply_piles.update(self.victory_piles)
 
         self.effect_runner = EffectRunner(game.num_players())
+        self.default_observer = game.make_py_observer()
 
     @property
     def victory_points(self):
@@ -1188,7 +1189,18 @@ class DominionGameState(pyspiel.State):
             raise Exception("load hand can only be called at start of player's turn")
         cards = [self._all_supply_piles[name].card for name in card_names]
         self.get_current_player().re_init_turn(cards)
-
+    
+    def observation_tensor(self):
+        self.default_observer.set_from(self,self.current_player())
+        return self.default_observer.tensor
+    
+    def observation_string(self):
+        self.default_observer.set_from(self,self.current_player())
+        return self.default_observer.string_from(self,self.current_player())
+    
+    def observation_dict(self):
+        self.default_observer.set_from(self,self.current_player())
+        return self.default_observer.dict
 
 class DominionObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
