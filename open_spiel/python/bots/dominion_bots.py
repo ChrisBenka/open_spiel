@@ -15,7 +15,7 @@ class BigMoneyBot(pyspiel.Bot):
 	
 	@staticmethod
 	def purchase_treasure_card_if_avail(card: dominion.TreasureCard, state):
-		return card.buy if state.treasure_piles[card.name].qty > 0 else dominion.END_PHASE_ACTION
+		return card.buy if state.supply_piles[card.name].qty > 0 else dominion.END_PHASE_ACTION
 
 	def step_with_policy(self,state: dominion.DominionGameState):
 		legal_actions = state.legal_actions()
@@ -23,6 +23,7 @@ class BigMoneyBot(pyspiel.Bot):
 			return [], pyspiel.INVALID_ACTION
 		obs_dict = state.observation_dict()
 		turn_phase = obs_dict['TurnPhase'][0]
+		action = dominion.END_PHASE_ACTION
 		if turn_phase is not dominion.TurnPhase.TREASURE_PHASE and turn_phase is not dominion.TurnPhase.BUY_PHASE:
 			action = dominion.END_PHASE_ACTION
 		elif turn_phase is dominion.TurnPhase.TREASURE_PHASE:
@@ -38,7 +39,7 @@ class BigMoneyBot(pyspiel.Bot):
 				action = BigMoneyBot.purchase_treasure_card_if_avail(dominion.SILVER,state)
 			elif num_coins >= 6 and num_coins <= 7:
 				action = BigMoneyBot.purchase_treasure_card_if_avail(dominion.GOLD,state)
-			elif num_coins is 8:
+			elif num_coins >= 8:
 				action = dominion.PROVINCE.buy
 		policy = [(legal_action,1) if legal_action is action else (legal_action,0) for legal_action in legal_actions]
 		return policy, action 

@@ -137,7 +137,7 @@ class BigMoneyBot(absltest.TestCase):
         state.get_current_player().draw_pile += [dominion.SILVER] * 2
         state.load_hand(['Copper','Copper','Copper','Silver','Silver'])
         
-        state.treasure_piles[dominion.GOLD.name].qty = 0
+        state.supply_piles[dominion.GOLD.name].qty = 0
         actions = []
         while state.current_player() is 0:
             action = bots[0].step(state)
