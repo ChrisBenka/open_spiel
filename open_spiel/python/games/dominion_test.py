@@ -22,6 +22,12 @@ from absl.testing import absltest
 from open_spiel.python.games import dominion
 from open_spiel.python.bots import dominion_bots,uniform_random
 import pyspiel 
+from absl import logging
+
+FLAGS = flags.FLAGS
+flags.DEFINE_string("game", "python_dominion", "Name of the game")
+flags.DEFINE_integer("num_players", 2, "Number of players")
+flags.DEFINE_string("kingdom_cards","Village, Laboratory, Festival, Market, Militia, Gardens, Chapel, Throne Room, Moneylender, Poacher", "names of 10 kingdom cards for gameplay")
 
 
 class DominionTestState(absltest.TestCase):
@@ -559,61 +565,127 @@ class DominionKingdomCardEffects(absltest.TestCase):
         self.assertEqual(len(state.get_current_player().trash_pile), 2)
         self.assertEqual(state.get_current_player().phase, dominion.TurnPhase.TREASURE_PHASE)
 
-    # def test_witch_opponent_immune(self):
-    #     """Since opponent immune to attack opponent will not gain a curse,but player to gain 2 cards to hand"""
+    def test_witch_opp_not_reveal_moat(self):
+        """Since opponent plays Moat theywill be immune to attack so player will not gain a curse"""
 
-    #     kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
-    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-    #     game = dominion.DominionGame(game_params)
-    #     state = game.new_initial_state()
-    #     curr_player = state.get_player(state.current_player())
+        kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
 
-    #     #must have 5 coins to buy a WITCH
-    #     state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        #must have 5 coins to buy a WITCH
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
 
-    #     for _ in range(5):
-    #         state.apply_action(dominion.COPPER.id)
-    #     #buy witch
-    #     state.apply_action(dominion.WITCH.id)
-    #     # skip next player's turn
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     # play Witch
-    #     state.load_hand([dominion.WITCH.name])
-    #     state.apply_action(dominion.WITCH.id)
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+        #buy witch
+        state.apply_action(dominion.WITCH.buy)
 
-    #     #assert opponents have gained a curse (causes a loss of 1 VP)
-    #     for p in state.other_players(state.get_player(0)):
-    #         self.assertIn(dominion.CURSE,state.get_player(p).discard_pile)
-    #         self.assertEqual(state.get_player(p).victory_points,2)
-    #     self.assertEqual(len(state.get_current_player().hand),5)
+        #player 1 buys moat
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
 
-#     def test_witch(self):
-#         """causes opponents to gain a curse card and player to gain 2 cards to hand"""
+        state.apply_action(dominion.MOAT.buy)
 
-#         kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
-#         game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-#         game = dominion.DominionGame(game_params)
-#         state = game.new_initial_state()
-#         curr_player = state.get_player(state.current_player())
+        state.get_player(1).load_hand([dominion.MOAT])
 
-#         #must have 5 coins to buy a WITCH
-#         state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        self.assertEqual(state.current_player(),0)
 
-#         for _ in range(5):
-#             state.apply_action(dominion.COPPER.play)
-#         #buy witch
-#         state.apply_action(dominion.WITCH.buy)
-#         # skip next player's turn
-#         state.apply_action(dominion.END_PHASE_ACTION)
-#         # play Witch
-#         state.load_hand([dominion.WITCH.name])
-#         state.apply_action(dominion.WITCH.play)
+        state.load_hand([dominion.WITCH.name])
+        state.apply_action(dominion.WITCH.play)
 
-#         #assert opponents have gained a curse (causes a loss of 1 VP)
-#         for p in state.other_players(state.get_player(0)):
-#             self.assertIn(dominion.CURSE,state.get_player(p).discard_pile)
-#             self.assertEqual(state.get_player(p).victory_points,2)
-#         self.assertEqual(len(state.get_current_player().hand),5)
+        #player 1 has a moat, can choose to reveal it by playing the card. 
+        self.assertEqual(state.current_player(),1)
+
+        self.assertEqual(state.legal_actions(),[dominion.MOAT.play,dominion.END_PHASE_ACTION])
+        self.assertEqual(state.action_to_string(dominion.MOAT.play),"Play Moat and do not gain Curse")
+        self.assertEqual(state.action_to_string(dominion.END_PHASE_ACTION),"Do not play Moat and gain Curse")
+
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        #go back to initiator of attack; check that player 1 has gained a CURSE guard and that MOAT remains in player 1's hand.
+        self.assertEqual(state.current_player(),0)
+        self.assertEqual(state.get_player(1).victory_points,2)
+        self.assertIn(dominion.CURSE, state.get_player(1).discard_pile)
+        self.assertIn(dominion.MOAT,state.get_player(1).hand)
+    
+    def test_witch_opp_reveals_moat(self):
+        """Since opponent plays Moat theywill be immune to attack so player will not gain a curse"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 5 coins to buy a WITCH
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+        #buy witch
+        state.apply_action(dominion.WITCH.buy)
+
+        #player 1 buys moat
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+        
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+
+        state.apply_action(dominion.MOAT.buy)
+
+        state.get_player(1).load_hand([dominion.MOAT])
+
+        self.assertEqual(state.current_player(),0)
+
+        state.load_hand([dominion.WITCH.name])
+        state.apply_action(dominion.WITCH.play)
+
+        #player 1 has a moat, can choose to reveal it by playing the card. 
+        self.assertEqual(state.current_player(),1)
+
+        self.assertEqual(state.legal_actions(),[dominion.MOAT.play,dominion.END_PHASE_ACTION])
+        self.assertEqual(state.action_to_string(dominion.MOAT.play),"Play Moat and do not gain Curse")
+        self.assertEqual(state.action_to_string(dominion.END_PHASE_ACTION),"Do not play Moat and gain Curse")
+
+        state.apply_action(dominion.MOAT.play)
+
+        #go back to initiator of attack; check that player 1 has not gained a CURSE guard and that MOAT remains in player 1's hand.
+        self.assertEqual(state.current_player(),0)
+        self.assertEqual(state.get_player(1).victory_points,3)
+        self.assertNotIn(dominion.CURSE, state.get_player(1).discard_pile)
+        self.assertIn(dominion.MOAT,state.get_player(1).hand)
+
+    def test_witch(self):
+        """causes opponents to gain a curse card and player to gain 2 cards to hand"""
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Chapel, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        curr_player = state.get_player(state.current_player())
+
+        #must have 5 coins to buy a WITCH
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+        #buy witch
+        state.apply_action(dominion.WITCH.buy)
+        # skip next player's turn
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # play Witch
+        state.load_hand([dominion.WITCH.name])
+        state.apply_action(dominion.WITCH.play)
+
+        #assert opponents have gained a curse (causes a loss of 1 VP)
+        for p in state.other_players(state.get_player(0)):
+            self.assertIn(dominion.CURSE,state.get_player(p).discard_pile)
+            self.assertEqual(state.get_player(p).victory_points,2)
+        self.assertEqual(len(state.get_current_player().hand),6)
 
     def test_workshop(self):
         """player gains a card from any pile costing less than 4 coins to their discard pile"""
@@ -1205,33 +1277,31 @@ class DominionPoacherEffect(absltest.TestCase):
         self.assertTrue(state.effect_runner.active)
 
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string("game", "python_dominion", "Name of the game")
-flags.DEFINE_integer("num_players", 2, "Number of players")
-flags.DEFINE_string("kingdom_cards","Village, Laboratory, Festival, Market, Militia, Gardens, Chapel, Throne Room, Moneylender, Poacher", "names of 10 kingdom cards for gameplay")
-
 class DominionTest(absltest.TestCase):
 
   def test_game_BigMoneyBotWinsAgainstRandomBot(self):
     """Runs our standard game tests, checking API consistency."""
-    game = pyspiel.load_game(FLAGS.game, {"num_players": FLAGS.num_players,"kingdom_cards": FLAGS.kingdom_cards, "verbose": False})
-    state = game.new_initial_state()
     bots = [
       dominion_bots.BigMoneyBot(0),
       uniform_random.UniformRandomBot(1, np.random.RandomState(4321))
     ]
-    while state.is_terminal() is False:
-      try:
-        action = bots[state.current_player()].step(state)
-        state.apply_action(action)
-      except dominion.GameFinishedException as e:
-        pass
-      except Exception as e:
-        print(f"action supplied={action}")
-        print(f"state={state}")
-        print(f"to_str={state.action_to_string(state.current_player(),action)}")
-        raise e
-    np.testing.assert_equal(state.returns(),[1,-1])
+    num_sims = 5
+    for _ in range(num_sims):
+      game = pyspiel.load_game(FLAGS.game, {"num_players": FLAGS.num_players,"kingdom_cards": FLAGS.kingdom_cards, "verbose": False})
+      state = game.new_initial_state()
+
+      while state.is_terminal() is False:
+        try:
+          action = bots[state.current_player()].step(state)
+          state.apply_action(action)
+        except dominion.GameFinishedException as e:
+          pass
+        except Exception as e:
+          print(f"action supplied={action}")
+          print(f"state={state}")
+          print(f"to_str={state.action_to_string(state.current_player(),action)}")
+          logging.error(e)
+      np.testing.assert_equal(state.returns(),[1,-1])
 
 
 if __name__ == "__main__":
