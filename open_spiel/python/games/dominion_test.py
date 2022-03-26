@@ -16,6 +16,7 @@
 """Tests for Python Dominion."""
 
 import random
+from xml import dom
 import numpy as np
 from absl import flags
 from absl.testing import absltest
@@ -226,8 +227,8 @@ class DominionPlayerTurnTest(absltest.TestCase):
         curr_player = state.get_player(state.current_player())
         for _ in range(4):
             state.apply_action(dominion.COPPER.play)
-        updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
-        updtd_num_coppers_in_play = len(list(filter(lambda card: card.name is 'Copper', curr_player.cards_in_play)))
+        updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name == 'Copper', curr_player.hand)))
+        updtd_num_coppers_in_play = len(list(filter(lambda card: card.name == 'Copper', curr_player.cards_in_play)))
         self.assertEqual(curr_player.coins, 4)
         self.assertEqual(updtd_num_coppers_in_hand, 0)
         self.assertEqual(updtd_num_coppers_in_play, 4)
@@ -245,8 +246,8 @@ class DominionPlayerTurnTest(absltest.TestCase):
         for _ in range(3):
             state.apply_action(dominion.COPPER.play)
         state.apply_action(dominion.END_PHASE_ACTION)
-        updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
-        updtd_num_coppers_in_play = len(list(filter(lambda card: card.name is 'Copper', curr_player.cards_in_play)))
+        updtd_num_coppers_in_hand = len(list(filter(lambda card: card.name == 'Copper', curr_player.hand)))
+        updtd_num_coppers_in_play = len(list(filter(lambda card: card.name == 'Copper', curr_player.cards_in_play)))
         self.assertEqual(curr_player.coins, 3)
         self.assertEqual(updtd_num_coppers_in_hand, 1)
         self.assertEqual(updtd_num_coppers_in_play, 3)
@@ -258,7 +259,7 @@ class DominionTreasureCardTestCase(absltest.TestCase):
         state = game.new_initial_state()
         state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Estate'])
         curr_player = state.get_player(state.current_player())
-        num_coppers = len(list(filter(lambda card: card.name is 'Copper', curr_player.hand)))
+        num_coppers = len(list(filter(lambda card: card.name == 'Copper', curr_player.hand)))
 
         for _ in range(num_coppers):
             state.apply_action(dominion.COPPER.play)
@@ -453,7 +454,7 @@ class DominionKingdomCardEffects(absltest.TestCase):
         self.assertEqual(len(state.get_player(0).hand), 7)
         self.assertEqual(state.get_player(0).phase, dominion.TurnPhase.TREASURE_PHASE)
 
-    def test_militia(self):
+    def test_militia_opp_not_have_moat(self):
         """add 2 coins, runs OpponentsDiscardDownToEffect which causes opponents to draw down to 3 cards in their hands (cards put into their respective discard piles) """
 
         kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
@@ -493,7 +494,7 @@ class DominionKingdomCardEffects(absltest.TestCase):
 
         # player deals with effect:
         num_cards_in_discard_pile = len(state.get_player(1).discard_pile)
-        while state.current_player() is 1:
+        while state.current_player() == 1:
             card_to_discard = random.choice(state.legal_actions())
             self.assertEqual(state._action_to_string(state.current_player(),card_to_discard),f"Discard {dominion._get_card(card_to_discard).name}")
             self.assertTrue(card_to_discard in list(map(lambda card: card.discard, state.get_current_player().hand)))
@@ -501,6 +502,47 @@ class DominionKingdomCardEffects(absltest.TestCase):
         self.assertEqual(len(state.get_player(1).hand), drawDownToThreeCards.num_cards_downto)
         self.assertEqual(len(state.get_player(1).discard_pile), num_cards_in_discard_pile + 2)
 
+        self.assertEqual(state.current_player(), 0)
+        self.assertEqual(state.get_current_player().phase, dominion.TurnPhase.TREASURE_PHASE)
+        self.assertEqual(state.get_current_player().coins, 2)
+    
+    def test_militia_opp_reveals_moat(self):
+        """add 2 coins, runs OpponentsDiscardDownToEffect which causes opponents to draw down to 3 cards in their hands (cards put into their respective discard piles) """
+
+        kingdom_cards = "Moat, Village, Festival, Smithy, Militia, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
+        obs = game.make_py_observer()
+        curr_player = state.get_player(state.current_player())
+
+        # mock draw_pile to contain at least 4 coins to purchase Militia
+        curr_player.draw_pile = [dominion.GOLD] * 3 + [dominion.COPPER] * 4 + [dominion.ESTATE] * 3
+        state.load_hand(['Gold', 'Gold', 'Copper', 'Gold', 'Estate'])
+
+        # play all golds + end phase
+        for _ in range(3):
+            state.apply_action(dominion.GOLD.play)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        # buy Militia
+        state.apply_action(dominion.MILITIA.buy)
+
+        state.load_hand(['Copper','Copper','Copper','Copper','Copper'])
+
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+        
+        state.apply_action(dominion.MOAT.buy)
+        state.get_player(1).load_hand([dominion.MOAT])
+
+        state.load_hand([dominion.MILITIA.name])
+        state.apply_action(dominion.MILITIA.play)
+        
+        self.assertEqual(state.current_player(), 1)
+        self.assertEqual(state.legal_actions(),[dominion.MOAT.play,dominion.END_PHASE_ACTION])
+
+        self.assertEqual(state.action_to_string(dominion.MOAT.play),"Play Moat and do not discard 3 cards")
+        state.apply_action(dominion.MOAT.play)
         self.assertEqual(state.current_player(), 0)
         self.assertEqual(state.get_current_player().phase, dominion.TurnPhase.TREASURE_PHASE)
         self.assertEqual(state.get_current_player().coins, 2)
@@ -1227,10 +1269,6 @@ class DominionKingdomCardEffects(absltest.TestCase):
 
         state.apply_action(random.choice(state.legal_actions()[:-1]))
         self.assertFalse(state.effect_runner.active)
-
-
-
-
 
 class DominionPoacherEffect(absltest.TestCase):
     def test_poacher_1_empty_supply_pile(self):
