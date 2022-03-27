@@ -1155,30 +1155,29 @@ class DominionKingdomCardEffects(absltest.TestCase):
         self.assertIn(dominion.VILLAGE, state.get_current_player().discard_pile)
         self.assertFalse(state.effect_runner.active)
 
-    # def test_council_room(self):
-    #     kingdom_cards = "Moat, Village, Festival, Smithy, Vassal, Witch, Library, Market, Mine, Council Room"
-    #     game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
-    #     game = dominion.DominionGame(game_params)
-    #     state = game.new_initial_state()
-    #     curr_player = state.get_player(state.current_player())
+    def test_council_room(self):
+        kingdom_cards = "Moat, Village, Festival, Smithy, Vassal, Witch, Library, Market, Mine, Council Room"
+        game_params = {"num_players": 2, "kingdom_cards": kingdom_cards}
+        game = dominion.DominionGame(game_params)
+        state = game.new_initial_state()
 
-    #     # must have 5 coins to buy a council room
-    #     state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Copper'])
+        # must have 5 coins to buy a council room
+        state.load_hand(['Copper', 'Copper', 'Copper', 'Copper', 'Copper'])
 
-    #     for _ in range(5):
-    #         state.apply_action(dominion.COPPER.play)
-    #     state.apply_action(dominion.COUNCIL_ROOM.buy)
-    #     state.apply_action(dominion.END_PHASE_ACTION)
-    #     state.load_hand([dominion.COUNCIL_ROOM.name])
-    #     state.apply_action(dominion.COUNCIL_ROOM.play)
+        for _ in range(5):
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.COUNCIL_ROOM.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.load_hand([dominion.COUNCIL_ROOM.name])
+        state.apply_action(dominion.COUNCIL_ROOM.play)
 
-    #     # each other play gains a card to hand
-    #     for p in state.other_players(state.get_current_player()):
-    #         self.assertEqual(len(state.get_player(p).hand), 6)
+        # each other play gains a card to hand
+        for p in state.other_players(state.get_current_player()):
+            self.assertEqual(len(state.get_player(p).hand), 6)
 
-    #     self.assertFalse(state.effect_runner.active)
-    #     self.assertEqual(len(state.get_current_player().hand), 5)
-    #     self.assertEqual(state.get_current_player().buys, 2)
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(len(state.get_current_player().hand), 8)
+        self.assertEqual(state.get_current_player().buys, 2)
 
     def test_artisan(self):
         kingdom_cards = "Moat, Village, Festival, Smithy, Artisan, Witch, Library, Market, Mine, Council Room"
@@ -1317,29 +1316,30 @@ class DominionPoacherEffect(absltest.TestCase):
 
 class DominionTest(absltest.TestCase):
 
-  def test_game_BigMoneyBotWinsAgainstRandomBot(self):
-    """Runs our standard game tests, checking API consistency."""
-    bots = [
-      dominion_bots.BigMoneyBot(0),
-      uniform_random.UniformRandomBot(1, np.random.RandomState(4321))
-    ]
-    num_sims = 5
-    for _ in range(num_sims):
-      game = pyspiel.load_game(FLAGS.game, {"num_players": FLAGS.num_players,"kingdom_cards": FLAGS.kingdom_cards, "verbose": False})
-      state = game.new_initial_state()
-
-      while state.is_terminal() is False:
-        try:
-          action = bots[state.current_player()].step(state)
-          state.apply_action(action)
-        except dominion.GameFinishedException as e:
-          pass
-        except Exception as e:
-          print(f"action supplied={action}")
-          print(f"state={state}")
-          print(f"to_str={state.action_to_string(state.current_player(),action)}")
-          logging.error(e)
-      np.testing.assert_equal(state.returns(),[1,-1])
+     def test_game_BigMoneyBotWinsAgainstRandomBot(self):
+        """Runs our standard game tests, checking API consistency."""
+        bots = [
+        dominion_bots.BigMoneyBot(0),
+        uniform_random.UniformRandomBot(1, np.random.RandomState(4321))
+        ]
+        num_sims = 5
+        for _ in range(num_sims):
+            game = pyspiel.load_game(FLAGS.game, {"num_players": FLAGS.num_players,"kingdom_cards": FLAGS.kingdom_cards, "verbose": False})
+            state = game.new_initial_state()
+            while state.is_terminal() is False:
+                try:
+                    action = bots[state.current_player()].step(state)
+                    state.apply_action(action)
+                except dominion.GameFinishedException as e:
+                    pass
+                except Exception as e:
+                    print(f"action supplied={action}")
+                    print(f"state={state}")
+                    print(f"to_str={state.action_to_string(state.current_player(),action)}")
+                    logging.error(e)
+            np.testing.assert_equal(state.returns(),[1,-1])
+    
+    
 
 
 if __name__ == "__main__":

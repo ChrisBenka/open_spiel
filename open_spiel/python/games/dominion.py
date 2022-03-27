@@ -16,8 +16,8 @@ import math
 import random
 
 import numpy as np
-import pyspiel
 from collections import Counter 
+import pyspiel
 
 _MIN_PLAYERS = 2
 _MAX_PLAYERS = 4
@@ -124,12 +124,11 @@ class TreasureCard(Card):
 class ActionCard(Card):
     def __init__(self, id: int, name: str, cost: int,
                  add_actions: int = 0, add_buys: int = 0, add_cards: int = 0,
-                 is_attack: bool = False, coins: int = 0, effect_list: list = []):
+                coins: int = 0, effect_list: list = []):
         super(ActionCard, self).__init__(id, name, cost)
         self.add_actions = add_actions
         self.add_buys = add_buys
         self.add_cards = add_cards
-        self.is_attack = is_attack
         self.effect_list = effect_list
         self.coins = coins
 
@@ -163,6 +162,7 @@ class TrashCardsEffect(Effect):
     """
 
     def __init__(self, num_cards,name,filter_func=None, optional=True):
+        self.id = 1
         self.num_cards = num_cards
         self.filter_func = filter_func
         self.optional = optional
@@ -207,8 +207,9 @@ class DiscardDownToEffect(Effect):
     Discard down to some number of cards in player's hand. Example: Militia.
     """
     def __init__(self, num_cards_downto):
+        self.id = 2
         self.num_cards_downto = num_cards_downto
-
+        
     def __str__(self):
         return f"Discard {self.num_cards_downto} cards"
 
@@ -238,6 +239,7 @@ class DiscardDownToEffect(Effect):
 
 class OpponentsDiscardDownToEffect(Effect):
     def __init__(self, num_cards_downto):
+        self.id = 3
         self.num_cards_downto = num_cards_downto
     def _legal_actions(self, state, player):
         """ the only legal action is to play a moat or not play a moat """
@@ -270,6 +272,7 @@ class OpponentsDiscardDownToEffect(Effect):
 class GainCardToDiscardPileEffect(Effect):
     def __init__(self, card):
         self.card = card
+        self.id = 4
 
     def __eq__(self, other):
         return self.card == other.card
@@ -285,6 +288,7 @@ class GainCardToDiscardPileEffect(Effect):
 class OpponentsGainCardEffect(Effect):
     def __init__(self, card):
         self.card = card
+        self.id = 5
     def __eq__(self, other):
         return self.card == other.card
     def _legal_actions(self, state, player):
@@ -318,7 +322,7 @@ class OpponentsGainCardEffect(Effect):
 class OpponentsGainCardToHandEffect(Effect):
     def __init__(self, num_cards=1):
         self.num_cards = num_cards
-
+        self.id = 6
     def __eq__(self, other):
         return self.num_cards == other.num_cards
 
@@ -332,6 +336,7 @@ class ChoosePileToGainEffect(Effect):
 
     def __init__(self, n_coins):
         self.n_coins = n_coins
+        self.id = 7
 
     def __eq__(self, other):
         return self.n_coins == other.n_coins
@@ -370,6 +375,8 @@ class TrashAndGainCostEffect(Effect):
         self.gain_exact_cost = gain_exact_cost
         self.has_trashed = False
         self.trashed_card = None
+        self.id = 8
+
 
     def __eq__(self, other):
         return self.add_cost is other.add_cost and self.gain_exact_cost is other.gain_exact_cost
@@ -423,7 +430,7 @@ class TrashTreasureAndGainCoinEffect(Effect):
         self.treasure_card = treasure_card
         self.n_coins = n_coins
         self.optional_trash = optional_trash
-
+        self.id = 9
     def __eq__(self, other):
         return self.treasure_card == other.treasure_card and \
                self.n_coins == other.n_coins and \
@@ -463,7 +470,7 @@ class TrashTreasureAndGainCoinEffect(Effect):
 class PoacherEffect(Effect):
     """Discard a card per empty Supply pie.""" 
     def __init__(self):
-        pass
+        self.id = 10
 
     def __eq__(self, other):
         return True
@@ -493,6 +500,7 @@ class CellarEffect(Effect):
     """+1 Action. Discard any number of cards, then draw that many."""
 
     def __init__(self):
+        self.id = 11
         self.num_cards_discarded = 0
         self.cards_to_discard = []
 
@@ -533,6 +541,7 @@ class TrashTreasureAndGainTreasure(Effect):
     def __init__(self, n_coins):
         self.n_coins = n_coins
         self.trashed_card = None
+        self.id = 12
 
     def __eq__(self, other):
         return self.n_coins == other.n_coins
@@ -584,7 +593,7 @@ class VassalEffect(Effect):
 
     def __init__(self):
         self.top_of_deck = None
-
+        self.id = 13
     def __eq__(self, other):
         return True
 
@@ -623,6 +632,8 @@ class ArtisanEffect(Effect):
         self.n_coins = 5
         self.card_to_gain = None
         self.name = "Artisan"
+        self.id = 14
+
     def _legal_actions(self, state, player):
         if self.card_to_gain is None:
             gainable_cards = list(map(lambda pile: pile.card.gain,
@@ -661,6 +672,7 @@ class SentryEffect(Effect):
         self.name = "Sentry"
         self.num_cards_trashed_or_discarded = 0
         self.top_two_cards = []
+        self.id = 15
     
     def __eq__(self,other):
         return True
@@ -699,7 +711,7 @@ class SentryEffect(Effect):
 class HarbingerEffect(Effect):
     def __init__(self):
         self.name = "Harbinger"
-
+        self.id = 16
     def __eq__(self,other):
         return True
 
@@ -727,6 +739,7 @@ class HarbingerEffect(Effect):
 
 class LibraryEffect(Effect):
     def __init__(self):
+        self.id = 17
         pass
 
     def _legal_actions(self, state, player):
@@ -1251,7 +1264,7 @@ class DominionGameState(pyspiel.State):
         player = self.get_current_player()
         if len(card_names) > _HAND_SIZE:
             raise Exception("List of cards to load into player's hand must be <= 5")
-        elif len(player.hand) is not _HAND_SIZE:
+        elif len(player.hand) != _HAND_SIZE:
             raise Exception("load hand can only be called at start of player's turn")
         elif not player.has_cards(card_names):
             raise Exception(F"{card_names} must be available for draw. Cards available for player's hand: {list(map(lambda card: card.name,player.hand + player.draw_pile))}")
