@@ -433,7 +433,162 @@ class DominionTestActionCards(absltest.TestCase):
             state.apply_action(action)
         self.assertEqual(len(current_player_state(state).hand),7)
         self.assertEqual(len(current_player_state(state).discard_pile),0)
-
     
+    def test_militia(self):
+        """add 2 coins and causes opponents to discard down to 3 cards each """
+        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = dominion.DominionGame(params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.MILITIA.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        self.assertEqual(state.current_player(),1)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        load_hand(state,['Militia','Copper','Copper','Estate','Estate'])
+        state.apply_action(dominion.MILITIA.play)
+        self.assertEqual(player_state(state,0).coins,2)
+        self.assertTrue(state.effect_runner.active)
+        self.assertEqual(state.current_player(),1)
+        curr_discard_size = len(current_player_state(state).discard_pile)
+        while state.effect_runner.active:
+            legal_actions = state._legal_actions(state.current_player())
+            action = np.random.choice(legal_actions)
+            state.apply_action(action)
+        self.assertEqual(state.current_player(),0)
+        self.assertEqual(len(player_state(state,1).hand),3)
+        self.assertEqual(len(player_state(state,1).discard_pile),curr_discard_size+2)
+
+    def test_gardens(self):
+        """1 victory point per 10 cards player has"""
+        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = dominion.DominionGame(params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.GARDENS.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        self.assertEqual(state.current_player(),1)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        load_hand(state,['Gardens','Copper','Copper','Estate','Estate'])
+        self.assertEqual(current_player_state(state).victory_points,4)
+    
+    def test_chapel(self):
+        """ Player can trash up to 4 cards """
+        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = dominion.DominionGame(params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.CHAPEL.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        
+        self.assertEqual(state.current_player(),1)
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        load_hand(state,['Chapel','Copper','Copper','Estate','Estate'])
+        state.apply_action(dominion.CHAPEL.play)
+        self.assertTrue(state.effect_runner.active)
+
+        for i in range(2):
+            legal_actions = state._legal_actions(state.current_player())
+            action = np.random.choice(legal_actions[:-1])
+            state.apply_action(action)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        self.assertFalse(state.effect_runner.active)
+        self.assertEqual(len(current_player_state(state).hand),2)
+    
+    def test_witch(self):
+        """ opponents gain a curse card, player gains 2 cards"""
+        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = dominion.DominionGame(params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.WITCH.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        
+        self.assertEqual(state.current_player(),1)
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        load_hand(state,['Witch','Copper','Copper','Estate','Estate'])
+        state.apply_action(dominion.WITCH.play)
+        self.assertIn(dominion.CURSE,player_state(state,1).discard_pile)
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            action = np.random.choice(action_list, p = prob_list)
+            state.apply_action(action)
+        self.assertEqual(len(current_player_state(state).hand),6)
+
+    def test_workshop(self):
+        """player gains card costing up to 4 coins """
+        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = dominion.DominionGame(params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.WORKSHOP.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        
+        self.assertEqual(state.current_player(),1)
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        load_hand(state,['Workshop','Copper','Copper','Estate','Estate'])
+
+        state.apply_action(dominion.WORKSHOP.play)
+        state.apply_action(dominion.DUCHY.gain)
+        self.assertIn(dominion.DUCHY,current_player_state(state).discard_pile)
+    
+    
+
+
 if __name__ == "__main__":
     absltest.main()
