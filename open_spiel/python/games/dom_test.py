@@ -2,6 +2,7 @@ from cmath import phase
 from json import load
 from xml import dom
 from absl.testing import absltest
+from pytest import param
 from open_spiel.python.games import dom as dominion
 import numpy as np
 import pyspiel 
@@ -914,7 +915,7 @@ class DominionTestActionCards(absltest.TestCase):
     #     pass
     def test_sentry_trash_discard_both(self):
         params = {'num_players': 2, 'kingdom_cards': 'Sentry,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = dominion.DominionGame(params)
+        game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -947,6 +948,43 @@ class DominionTestActionCards(absltest.TestCase):
 
         state.apply_action(dominion.COPPER.discard)
         state.apply_action(dominion.COPPER.trash)
+        self.assertFalse(state.effect_runner.active)
+
+    def test_sentry_trash_keep_both(self):
+        params = {'num_players': 2, 'kingdom_cards': 'Sentry,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = pyspiel.load_game("python_dom",params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        for a in [dominion.END_PHASE_ACTION,dominion.SENTRY.buy,dominion.END_PHASE_ACTION]:
+            state.apply_action(a)   
+
+        self.assertEqual(state.current_player(),1)
+        state.apply_action(dominion.END_PHASE_ACTION)
+        load_hand(state,['Sentry','Copper','Copper','Estate','Estate']) 
+
+        hand_size = len(current_player_state(state).hand)
+        state.apply_action(dominion.SENTRY.play)
+        self.assertEqual(current_player_state(state).actions,1)
+        self.assertEqual(len(current_player_state(state).hand),hand_size)
+        self.assertTrue(state.effect_runner.active)
+
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            action = np.random.choice(action_list, p=prob_list)
+            state.apply_action(action)
+
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.END_PHASE_ACTION)
         self.assertFalse(state.effect_runner.active)
 
 
@@ -1091,7 +1129,7 @@ class DominionGameStateObserver(absltest.TestCase):
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         params = make_params(state)
-        observation = game.make_py_observer(params=params)
+        observation = game.make_py_observer()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
             action_list, prob_list = zip(*outcomes_with_probs)
@@ -1105,7 +1143,7 @@ class DominionGameStateObserver(absltest.TestCase):
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         params = make_params(state)
-        observation = game.make_py_observer(params=params)
+        observation = game.make_py_observer()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
             action_list, prob_list = zip(*outcomes_with_probs)
@@ -1122,7 +1160,7 @@ class DominionGameStateObserver(absltest.TestCase):
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         params = make_params(state)
-        observation = game.make_py_observer(params=params)
+        observation = game.make_py_observer()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
             action_list, prob_list = zip(*outcomes_with_probs)
@@ -1134,6 +1172,20 @@ class DominionGameStateObserver(absltest.TestCase):
         observation.set_from(state,0)
         self.assertEqual(str(observation.dict),"{'kingdom_cards_in_play': array([0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,\n       0, 0, 0, 1]), 'kingdom_piles': array([ 0, 10, 10, 10, 10, 10,  8, 10, 10,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0, 10,  0,  0,  0,  0,  0, 10]), 'treasure_piles': array([46, 40, 30]), 'victory_piles': array([10,  8,  8,  8]), 'victory_points': array([3, 3]), 'TurnPhase': array([2]), 'actions': array([1]), 'buys': array([1]), 'coins': array([0]), 'draw': array([2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'hand': array([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'cards_in_play': array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'discard': array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'trash': array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'effect': array([0])}")
 
+    def test_obs_tensor(self):
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        game = pyspiel.load_game("python_dom",params)
+        state = game.new_initial_state()
+        observer = game.make_py_observer()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            action = np.random.choice(action_list, p=prob_list)
+            state.apply_action(action)
+        cc_obs = state.observation_tensor()
+        observer.set_from(state,0)
+        np.testing.assert_array_equal(observer.tensor,cc_obs)
+        
 class DominionGameStrings(absltest.TestCase):
     def test_initial_draw_strings(self):
         params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat'}
@@ -1159,7 +1211,6 @@ class DominionGameStrings(absltest.TestCase):
     def test_endphase_string(self):
         game = pyspiel.load_game("python_dom")
         state = game.new_initial_state()
-        params = make_params(state)
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
             action_list, prob_list = zip(*outcomes_with_probs)
@@ -1167,8 +1218,6 @@ class DominionGameStrings(absltest.TestCase):
             state.apply_action(action)
         s = state.action_to_string(dominion.END_PHASE_ACTION)
         self.assertEqual(s,"End TREASURE_PHASE")
-
-
 
 
 if __name__ == "__main__":

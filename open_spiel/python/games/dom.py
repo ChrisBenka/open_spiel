@@ -617,13 +617,11 @@ class SentryEffect(Effect):
         player = state._current_player_state()
         card = _get_card(action)
         if action is card.trash:
+            player.draw_pile.remove(card)
             player.trash_pile.append(card)
         elif action is card.discard:
+            player.draw_pile.remove(card)
             player.discard_pile.append(card)
-        else:
-            state.effect_runner.effects[player.id] = None
-            return 
-        player.draw_pile.remove(card)
         self.top_two_cards.remove(card)
         if len(self.top_two_cards) == 0 :
             state.effect_runner.effects[player.id] = None
@@ -1013,7 +1011,7 @@ class DominionGame(pyspiel.Game):
         return DominionGameState(self)
         
     def make_py_observer(self, iig_obs_type=None, params=None):
-        return DominionObserver(iig_obs_type, params)
+        return DominionObserver(params,self)
 
 
 class DominionGameState(pyspiel.State):
@@ -1241,8 +1239,8 @@ class DominionGameState(pyspiel.State):
 
 class DominionObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
-    def __init__(self, iig_obs_type, params):
-        self._kingdom_cards = params['kingdom_cards'].split(",")
+    def __init__(self, params, game):
+        del params
         num_kingdom_cards = len(_KINGDOM_CARDS)
         """Initializes an empty observation tensor."""
         # different components of observation
@@ -1251,7 +1249,7 @@ class DominionObserver:
             ("kingdom_piles", num_kingdom_cards, (num_kingdom_cards,)),
             ("treasure_piles", _NUM_TREASURE_PILES, (_NUM_TREASURE_PILES,)),
             ("victory_piles", _NUM_VICTORY_PILES, (_NUM_VICTORY_PILES,)),
-            ("victory_points", params["num_players"], (params["num_players"],)),
+            ("victory_points", _NUM_PLAYERS, (_NUM_PLAYERS,)),
             ('TurnPhase', 1, (1,)),
             ('actions', 1, (1,)),
             ('buys', 1, (1,)),
@@ -1292,7 +1290,7 @@ class DominionObserver:
 
         effect = [state.effect_runner.effects[player].id] if state.effect_runner.effects[player] is not None else [0]
         values = [
-            ("kingdom_cards_in_play", [1 if card.name in self._kingdom_cards else 0 for card in _KINGDOM_CARDS]),
+            ("kingdom_cards_in_play", [1 if card.name in  state._kingdom_supply.keys() else 0 for card in _KINGDOM_CARDS]),
             ('kingdom_piles', kingdom_piles),
             ('treasure_piles', treasure_piles),
             ('victory_piles', victory_piles),
