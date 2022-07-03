@@ -12,8 +12,8 @@ DISCARD_ID = iter(range(67,100))
 TRASH_ID = iter(range(100,133))
 GAIN_ID = iter(range(133,166))
 
-# def get_card_names(pile_nm: str ,list_of_cards: list):
-#    return f"{pile_nm}: {','.join([str(card) for card in list_of_cards])}" if len(list_of_cards) > 0 else f"{pile_nm}: Empty"
+def get_card_names(pile_nm: str ,list_of_cards: list):
+   return f"{pile_nm}: {','.join([str(card) for card in list_of_cards])}" if len(list_of_cards) > 0 else f"{pile_nm}: Empty"
 
 class SupplyPile:
     def __init__(self, card, qty):
@@ -901,6 +901,19 @@ class Player(object):
         self.required_cards = None
         self.add_discard_pile_to_draw_pile = False
     
+    def __str__(self):
+        pieces = []
+        pieces.append(f"p{self.id}:")
+        pieces.append(get_card_names("\tdraw_pile",self.draw_pile))
+        pieces.append(get_card_names("\thand",self.hand))
+        pieces.append(get_card_names("\tdiscard_pile",self.discard_pile))
+        pieces.append(get_card_names("\ttrash_pile",self.trash_pile))
+        pieces.append(get_card_names("\tcards_in_play",self.cards_in_play))
+        pieces.append(f"\tnum_actions: {self.actions}")
+        pieces.append(f"\tnum_buys: {self.buys}")
+        pieces.append(f"\tnum_coins: {self.coins}")
+        return "\n".join(str(p) for p in pieces)
+
     @property
     def all_cards(self):
         return self.draw_pile + self.discard_pile + self.trash_pile + self.cards_in_play + self.hand
@@ -1019,7 +1032,7 @@ class DominionGameState(pyspiel.State):
         super().__init__(game)
 
         self._curr_player = 0
-        self.is_terminal = False
+        self._is_terminal = False
         self.supply_piles = {}
         self.supply_piles.update(game._init_treasure_supply)
         self.supply_piles.update(game._init_victory_supply)
@@ -1036,6 +1049,23 @@ class DominionGameState(pyspiel.State):
         params = {}
         params["num_players"] = self._num_players
         params["kingdom_cards"] = ",".join(self._kingdom_supply.keys())
+    
+    def __str__(self):
+        """String for debug purposes. No particular semantics are required."""
+        pieces = []
+        kingdom_supply_piles = ", ".join([f"{kingdom_nm}: {self._kingdom_supply[kingdom_nm].qty}" for kingdom_nm in self._kingdom_supply.keys()])
+        treasure_piles = ", ".join([f"{card_nm}: {self.supply_piles[card_nm].qty}" for card_nm in _TREASURE_CARDS_NAMES])
+        victory_piles = ", ".join([f"{card_nm}: {self.supply_piles[card_nm].qty}" for card_nm in _VICTORY_CARDS_NAMES])
+        victory_points = ", ".join([f"p{player.id}: {player.victory_points}" for player in self._players])
+        players = "\n".join([str(player) for player in self._players])
+        pieces.append(f"kingdom supply piles: {kingdom_supply_piles}")
+        pieces.append(f"treasure supply piles: {treasure_piles}")
+        pieces.append(f"victory supply piles: {victory_piles}")
+        pieces.append(f"victory points: {victory_points}")
+        pieces.append(f"turn phase: {(self._players[self._curr_player].phase)}")
+        pieces.append((f"current player:{self.current_player()}"))
+        pieces.append(players)             
+        return "\n".join(str(p) for p in pieces)
 
     def get_player(self,player_id):
         return self._players[player_id]
@@ -1185,7 +1215,11 @@ class DominionGameState(pyspiel.State):
                     elif player.phase is TurnPhase.ACTION_PHASE:
                         self._play_action_card(card)
         self._is_terminal = self.game_finished()
-            
+    
+    def is_terminal(self):
+        """Returns True if the game is over."""
+        return self._is_terminal
+
     def _legal_action_cards(self, p_id):
         """ player can play any action card in their hand """
         player = self._players[p_id]
@@ -1212,18 +1246,18 @@ class DominionGameState(pyspiel.State):
             list(map(lambda card: card.play, filter(lambda card: isinstance(card, TreasureCard), player.hand))))
         return sorted(list(treasure_cards) + [END_PHASE_ACTION])
    
-    def _legal_actions(self, p_id):
+    def _legal_actions(self, player):
         """Returns a list of legal actions, sorted in ascending order."""
-        assert p_id >= 0
-        player = self._players[p_id]
+        assert player >= 0
+        player_state = self._players[player]
         if self.effect_runner.active:
-            return self.effect_runner._legal_actions(self,p_id)
-        if player.phase is TurnPhase.TREASURE_PHASE:
-            return self._legal_treasure_cards(p_id)
-        elif player.phase is TurnPhase.BUY_PHASE:
-            return self._legal_cards_to_buy(p_id)
-        elif player.phase is TurnPhase.ACTION_PHASE:
-            return self._legal_action_cards(p_id)
+            return self.effect_runner._legal_actions(self,player)
+        if player_state.phase is TurnPhase.TREASURE_PHASE:
+            return self._legal_treasure_cards(player)
+        elif player_state.phase is TurnPhase.BUY_PHASE:
+            return self._legal_cards_to_buy(player)
+        elif player_state.phase is TurnPhase.ACTION_PHASE:
+            return self._legal_action_cards(player)
 
     def returns(self):
         [vp_p1,vp_p2] = list(map(lambda player: player.victory_points, self._players))

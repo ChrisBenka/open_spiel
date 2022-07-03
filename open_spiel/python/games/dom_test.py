@@ -4,6 +4,7 @@ from xml import dom
 from absl.testing import absltest
 from pytest import param
 from open_spiel.python.games import dom as dominion
+from open_spiel.python.bots import dominion_bots,uniform_random
 import numpy as np
 import pyspiel 
 from collections import Counter 
@@ -107,6 +108,7 @@ class DominionTestStateAndGameSetup(absltest.TestCase):
 class DominionTestPlayTurn(absltest.TestCase):
     params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
     
+
     def test_treasure_phase_legal_actions(self):
         params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop'}
         game = pyspiel.load_game("python_dom",params)
@@ -118,7 +120,7 @@ class DominionTestPlayTurn(absltest.TestCase):
             state.apply_action(action)
         self.assertEqual(state._legal_actions(0),[dominion.COPPER.play,dominion.END_PHASE_ACTION])
 
-    def test_play_treasure_card_and_end_turn(self):
+    def test_play_treasure_card_and_end_phase(self):
         params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
@@ -248,7 +250,42 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(player_state(state,0).actions,1)
         self.assertEqual(player_state(state,0).buys,1)
         self.assertEqual(player_state(state,0).coins,0)
-    
+
+    def test_end_turn_add_cards_to_draw_pile(self):
+        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        game = pyspiel.load_game("python_dom",params)
+        state = game.new_initial_state()
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            if prob_list[0] != 0:
+                state.apply_action(dominion.COPPER.id)
+            else:
+                action = np.random.choice(action_list, p=prob_list)
+                state.apply_action(action)
+        
+        while current_player_state(state).has_treasure_cards_in_hand and current_player_state(state).phase is dominion.TurnPhase.TREASURE_PHASE:
+            state.apply_action(dominion.COPPER.play)
+        
+        #move all cards from discarddraw_pile_pile discard_pile
+        current_player_state(state).discard_pile += current_player_state(state).draw_pile
+        current_player_state(state).draw_pile.clear()
+
+        state.apply_action(dominion.END_PHASE_ACTION)
+        state.apply_action(dominion.DUCHY.buy)
+        state.apply_action(dominion.END_PHASE_ACTION)
+
+        self.assertTrue(state.is_chance_node())
+        while state.is_chance_node():
+            outcomes_with_probs = state.chance_outcomes()
+            action_list, prob_list = zip(*outcomes_with_probs)
+            action = np.random.choice(action_list, p=prob_list)
+            state.apply_action(action)
+        self.assertEqual(player_state(state,0).actions,1)
+        self.assertEqual(player_state(state,0).buys,1)
+        self.assertEqual(player_state(state,0).coins,0)
+        self.assertEqual(len(player_state(state,0).hand),5)
+
     def test_play_treasure_card_increases_coins(self):
         params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
         game = pyspiel.load_game("python_dom",params)
@@ -1219,6 +1256,29 @@ class DominionGameStrings(absltest.TestCase):
         s = state.action_to_string(dominion.END_PHASE_ACTION)
         self.assertEqual(s,"End TREASURE_PHASE")
 
+class DominionGameBots(absltest.TestCase):
+     def test_game_BigMoneyBotWinsAgainstRandomBot(self):
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat'}
+        num_sims = 2
+        for _ in range(num_sims):
+            game = pyspiel.load_game("python_dom",params)
+            state = game.new_initial_state()
+            observer = game.make_py_observer()
+            bots = [
+                dominion_bots.BigMoneyBot(observer=observer,player_id=0),
+                uniform_random.UniformRandomBot(1, np.random.RandomState(4321))
+            ]
+            while not state.is_terminal():
+                if state.is_chance_node():
+                    outcomes_with_probs = state.chance_outcomes()
+                    action_list, prob_list = zip(*outcomes_with_probs)
+                    action = np.random.choice(action_list, p=prob_list)
+                    state.apply_action(action)
+                else:
+                    curr_player = state.current_player()
+                    action = bots[curr_player].step(state)
+                    state.apply_action(action)
+            np.testing.assert_equal(state.returns(),[1,-1])
 
 if __name__ == "__main__":
     absltest.main()
