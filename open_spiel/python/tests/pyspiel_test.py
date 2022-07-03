@@ -11,12 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Tests for open_spiel.python.pybind11.pyspiel."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import os
 from absl.testing import absltest
@@ -30,6 +25,7 @@ import pyspiel
 EXPECTED_GAMES = frozenset([
     "amazons",
     "backgammon",
+    "bargaining",
     "battleship",
     "blackjack",
     "blotto",
@@ -41,6 +37,7 @@ EXPECTED_GAMES = frozenset([
     "cliff_walking",
     "clobber",
     "coin_game",
+    "colored_trails",
     "connect_four",
     "coop_box_pushing",
     "coop_to_1p",
@@ -51,6 +48,7 @@ EXPECTED_GAMES = frozenset([
     "dark_hex_ir",
     "deep_sea",
     "efg_game",
+    "euchre",
     "first_sealed_auction",
     "gin_rummy",
     "go",
@@ -65,6 +63,7 @@ EXPECTED_GAMES = frozenset([
     "leduc_poker",
     "liars_dice",
     "liars_dice_ir",
+    "mancala",
     "markov_soccer",
     "matching_pennies_3p",
     "matrix_cd",
@@ -78,6 +77,7 @@ EXPECTED_GAMES = frozenset([
     "mean_field_lin_quad",
     "mfg_crowd_modelling",
     "mfg_crowd_modelling_2d",
+    "mfg_dynamic_routing",
     "mfg_garnet",
     "misere",
     "morpion_solitaire",
@@ -241,8 +241,8 @@ class PyspielTest(absltest.TestCase):
     self.assertEqual(pyspiel.game_parameters_to_string({}), "")
 
   def test_game_parameters_to_string_simple(self):
-    self.assertEqual(pyspiel.game_parameters_to_string({"name": "foo"}),
-                     "foo()")
+    self.assertEqual(
+        pyspiel.game_parameters_to_string({"name": "foo"}), "foo()")
 
   def test_game_parameters_to_string_with_options(self):
     self.assertEqual(

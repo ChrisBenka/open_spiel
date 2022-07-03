@@ -3,6 +3,8 @@ set(GAME_SOURCES
   amazons.h
   backgammon.cc
   backgammon.h
+  bargaining.cc
+  bargaining.h
   battleship.cc
   battleship.h
   battleship_types.h
@@ -33,6 +35,9 @@ set(GAME_SOURCES
   clobber.h
   coin_game.cc
   coin_game.h
+  colored_trails.cc
+  colored_trails.h
+  colored_trails/colored_trails_utils.cc
   connect_four.cc
   connect_four.h
   coop_box_pushing.cc
@@ -47,10 +52,16 @@ set(GAME_SOURCES
   dark_hex.h
   deep_sea.cc
   deep_sea.h
+  dynamic_routing/dynamic_routing_data.cc
+  dynamic_routing/dynamic_routing_data.h
+  dynamic_routing/dynamic_routing_utils.cc
+  dynamic_routing/dynamic_routing_utils.h
   efg_game.cc
   efg_game.h
   efg_game_data.cc
   efg_game_data.h
+  euchre.cc
+  euchre.h
   first_sealed_auction.cc
   first_sealed_auction.h
   gin_rummy.cc
@@ -81,6 +92,8 @@ set(GAME_SOURCES
   lewis_signaling.h
   liars_dice.cc
   liars_dice.h
+  mancala.cc
+  mancala.h
   markov_soccer.cc
   markov_soccer.h
   matching_pennies_3p.cc
@@ -90,6 +103,8 @@ set(GAME_SOURCES
   mfg/crowd_modelling.h
   mfg/crowd_modelling_2d.cc
   mfg/crowd_modelling_2d.h
+  mfg/dynamic_routing.cc
+  mfg/dynamic_routing.h
   mfg/garnet.cc
   mfg/garnet.h
   morpion_solitaire.cc
@@ -243,6 +258,12 @@ add_executable(backgammon_test backgammon_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(backgammon_test backgammon_test)
 
+add_executable(bargaining_instance_generator bargaining_instance_generator.cc
+               ${OPEN_SPIEL_OBJECTS})
+add_executable(bargaining_test bargaining_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(bargaining_test bargaining_test)
+
 add_executable(battleship_test battleship_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(battleship_test battleship_test)
@@ -284,6 +305,14 @@ add_executable(coin_game_test coin_game_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:algorithms>)
 add_test(coin_game_test coin_game_test)
 
+add_executable(colored_trails_board_generator
+               colored_trails/colored_trails_board_generator.cc
+               ${OPEN_SPIEL_OBJECTS} $<TARGET_OBJECTS:tests>)
+
+add_executable(colored_trails_test colored_trails_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(colored_trails_test colored_trails_test)
+
 add_executable(connect_four_test connect_four_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>
                $<TARGET_OBJECTS:algorithms>)
@@ -324,9 +353,25 @@ add_executable(deep_sea_test deep_sea_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(deep_sea_test deep_sea_test)
 
+add_executable(dynamic_routing_data_test dynamic_routing/dynamic_routing_data_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(dynamic_routing_data_test dynamic_routing_data_test)
+
+add_executable(dynamic_routing_test mfg/dynamic_routing_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(dynamic_routing_test dynamic_routing_test)
+
+add_executable(dynamic_routing_utils_test dynamic_routing/dynamic_routing_utils_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(dynamic_routing_utils_test dynamic_routing_utils_test)
+
 add_executable(efg_game_test efg_game_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(efg_game_test efg_game_test)
+
+add_executable(euchre_test euchre_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(euchre_test euchre_test)
 
 add_executable(first_sealed_auction_test first_sealed_auction_test.cc
                ${OPEN_SPIEL_OBJECTS}
@@ -383,6 +428,10 @@ add_executable(liars_dice_test liars_dice_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>
                $<TARGET_OBJECTS:algorithms>)
 add_test(liars_dice_test liars_dice_test)
+
+add_executable(mancala_test mancala_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(mancala_test mancala_test)
 
 add_executable(markov_soccer_test markov_soccer_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>
