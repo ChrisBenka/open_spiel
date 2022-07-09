@@ -65,21 +65,21 @@ class DominionTestStateAndGameSetup(absltest.TestCase):
             self.assertEqual(msg,"Expected list of 10 unique kingdom cards separated by a comma")
 
         try:
-            params['kingdom_cards'] = "invalid1, invalid2, invalid3, invalid4, invalid5, invalid6, invalid7, invalid8, invalid9, invalid10"
+            params['kingdom_cards'] = "invalid1; invalid2; invalid3; invalid4; invalid5; invalid6; invalid7; invalid8; invalid9; invalid10"
             game = pyspiel.load_game("python_dom",params)
         except Exception as e:
             msg = 'is not an available kingdom card. Available kingdom cards: \n Village, Laboratory, Festival, Market, Smithy, Militia, Gardens, Chapel, Witch, Workshop, Bandit, Remodel, Throne Room, Moneylender, Poacher, Merchant, Cellar, Mine, Vassal, Council Room, Artisan, Bureaucrat, Sentry, Harbinger, Library, Moat'
             self.assertIn(msg,str(e))
 
     def test_can_create_game_using_specified_kingdom_cards(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         self.assertIn('Village',state.supply_piles)
         self.assertIn('Workshop',state.supply_piles)
 
     def test_each_player_starts_with_7copper_3estates(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -92,7 +92,7 @@ class DominionTestStateAndGameSetup(absltest.TestCase):
         self.assertEqual(state.current_player(),0)
 
     def test_each_player_starts_with_0coins_1buy_1action(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -106,12 +106,9 @@ class DominionTestStateAndGameSetup(absltest.TestCase):
 
 
 class DominionTestPlayTurn(absltest.TestCase):
-    params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-    
-
+    params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop'}
     def test_treasure_phase_legal_actions(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop'}
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -121,8 +118,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(state._legal_actions(0),[dominion.COPPER.play,dominion.END_PHASE_ACTION])
 
     def test_play_treasure_card_and_end_phase(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -137,8 +133,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(current_player_state(state).phase,dominion.TurnPhase.BUY_PHASE)
 
     def test_play_all_treasure_cards(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -152,8 +147,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(current_player_state(state).phase,dominion.TurnPhase.BUY_PHASE)
     
     def test_skip_buy_card(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -169,8 +163,7 @@ class DominionTestPlayTurn(absltest.TestCase):
     
 
     def test_buy_treasure_card(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -186,8 +179,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(state.current_player(),1)
     
     def test_buy_action_card(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -207,8 +199,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(state.current_player(),1)
 
     def test_buy_victory_card_increases_vp(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -229,8 +220,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(state.current_player(),1)
 
     def test_end_turn(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -252,8 +242,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(player_state(state,0).coins,0)
 
     def test_end_turn_add_cards_to_draw_pile(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -287,8 +276,7 @@ class DominionTestPlayTurn(absltest.TestCase):
         self.assertEqual(len(player_state(state,0).hand),5)
 
     def test_play_treasure_card_increases_coins(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        game = pyspiel.load_game("python_dom",DominionTestPlayTurn.params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -305,7 +293,7 @@ class DominionTestPlayTurn(absltest.TestCase):
 class DominionTestActionCards(absltest.TestCase):
     def test_village(self):
         """Playing village adds 1 card, 2 actions """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -333,7 +321,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_laboratory(self):
         """add 2 cards ; add 1 action"""
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -373,7 +361,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_festival(self):
         """add 2 actions; 1 buys; 2 coins ; """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -404,7 +392,7 @@ class DominionTestActionCards(absltest.TestCase):
     
     def test_market(self):
         """add 1 actions; 1 buy; 1 coin ; 1 card """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -435,7 +423,7 @@ class DominionTestActionCards(absltest.TestCase):
     
     def test_smithy(self):
         """add 3 cards """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -474,7 +462,7 @@ class DominionTestActionCards(absltest.TestCase):
     
     def test_militia(self):
         """add 2 coins and causes opponents to discard down to 3 cards each """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -508,7 +496,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_gardens(self):
         """1 victory point per 10 cards player has"""
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -531,7 +519,7 @@ class DominionTestActionCards(absltest.TestCase):
     
     def test_chapel(self):
         """ Player can trash up to 4 cards """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -565,7 +553,7 @@ class DominionTestActionCards(absltest.TestCase):
     
     def test_witch(self):
         """ opponents gain a curse card, player gains 2 cards"""
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -598,7 +586,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_workshop(self):
         """player gains card costing up to 4 coins """
-        params = {'num_players': 2, 'kingdom_cards': 'Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -625,10 +613,10 @@ class DominionTestActionCards(absltest.TestCase):
         state.apply_action(dominion.DUCHY.gain)
         self.assertIn(dominion.DUCHY,current_player_state(state).discard_pile)
     
-    def test_bandit(self):
-        pass
+#     def test_bandit(self):
+#         pass
     def test_remodel(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Remodel,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Remodel; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -656,10 +644,10 @@ class DominionTestActionCards(absltest.TestCase):
         state.apply_action(dominion.DUCHY.gain)
         self.assertIn(dominion.DUCHY,current_player_state(state).discard_pile)
 
-    def test_throne_room(self):
-        pass
+#     def test_throne_room(self):
+#         pass
     def test_moneylonder(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Moneylender,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Moneylender; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -688,8 +676,8 @@ class DominionTestActionCards(absltest.TestCase):
         self.assertEqual(current_player_state(state).coins,3)
 
     def test_poacher_no_empty_supply_piles(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Poacher,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        params = {'num_players': 2, 'kingdom_cards': 'Poacher; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
+        game = pyspiel.load_game("python_dom", params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -716,7 +704,7 @@ class DominionTestActionCards(absltest.TestCase):
     
     def test_poacher_empty_supply_piles_less_than_hand_size(self):
         """ player gains 1 card, 1 action, can discard a card per empty supply pile"""
-        params = {'num_players': 2, 'kingdom_cards': 'Poacher,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Poacher; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -748,7 +736,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_poacher_empty_supply_piles_equals_hand_size(self):
         """ player gains 1 card, 1 action, can discard a card per empty supply pile"""
-        params = {'num_players': 2, 'kingdom_cards': 'Poacher,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Poacher; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -785,7 +773,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_merchant(self):
         """ player gains 1 card and 1 action"""
-        params = {'num_players': 2, 'kingdom_cards': 'Merchant,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Merchant; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -813,7 +801,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_cellar(self):
         """ player gains 1 action and has option to discard any number of cards, then draw that many """ 
-        params = {'num_players': 2, 'kingdom_cards': 'Cellar,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Cellar; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -853,7 +841,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_mine_dont_trash(self):
         """ add 1 action  trash and Gain a Treasure from your hand. Gain a treasure to your hand costing up to 3 more than card trashed """
-        params = {'num_players': 2, 'kingdom_cards': 'Mine,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Mine; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -881,7 +869,7 @@ class DominionTestActionCards(absltest.TestCase):
 
     def test_mine_trash(self):
         """ add 1 action  trash and Gain a Treasure from/to your hand. Gain a treasure to your hand costing up to 3 more than the treasure card trashed """
-        params = {'num_players': 2, 'kingdom_cards': 'Mine,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Mine; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -909,12 +897,12 @@ class DominionTestActionCards(absltest.TestCase):
         self.assertFalse(state.effect_runner.active)
         self.assertIn(dominion.SILVER,current_player_state(state).hand)
 
-#     def test_vassal(self):
-#         """ gain 2 coins, Discard the top card of your deck. If it's an Action card, you may play it """
-#         pass
+# #     def test_vassal(self):
+# #         """ gain 2 coins, Discard the top card of your deck. If it's an Action card, you may play it """
+# #         pass
     def test_council_room(self):
         """ add 4 cards to hand, 1 buy, opponents gain 1 card to hand """
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -948,10 +936,10 @@ class DominionTestActionCards(absltest.TestCase):
         self.assertEqual(len(current_player_state(state).hand),8)
         self.assertEqual(len(player_state(state,1).hand),6)
 
-    # def test_bureaucrat(self):
-    #     pass
+#     # def test_bureaucrat(self):
+#     #     pass
     def test_sentry_trash_discard_both(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Sentry,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
+        params = {'num_players': 2, 'kingdom_cards': 'Sentry; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -988,8 +976,8 @@ class DominionTestActionCards(absltest.TestCase):
         self.assertFalse(state.effect_runner.active)
 
     def test_sentry_trash_keep_both(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Sentry,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop' }
-        game = pyspiel.load_game("python_dom",params)
+        params = {'num_players': 2, 'kingdom_cards': 'Sentry; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop' }
+        game = pyspiel.load_game("python_dom", params)
         state = game.new_initial_state()
         while state.is_chance_node():
             outcomes_with_probs = state.chance_outcomes()
@@ -1025,14 +1013,14 @@ class DominionTestActionCards(absltest.TestCase):
         self.assertFalse(state.effect_runner.active)
 
 
-    # def test_harbinger(self):
-    #     pass
-    # def test_library(self):
-    #     pass
+#     # def test_harbinger(self):
+#     #     pass
+#     # def test_library(self):
+#     #     pass
 
     def test_moat_against_witch(self):
         """ add 4 cards to hand, 1 buy, opponents gain 1 card to hand """
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -1076,7 +1064,7 @@ class DominionTestActionCards(absltest.TestCase):
         self.assertEqual(state.current_player(),0)
 
     def test_moat_against_militia(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -1114,7 +1102,7 @@ class DominionTestActionCards(absltest.TestCase):
 
 class DominionEndOfGame(absltest.TestCase):
     def test_game_finisihed_no_provinces(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -1127,7 +1115,7 @@ class DominionEndOfGame(absltest.TestCase):
         self.assertTrue(state.game_finished())
 
     def test_game_finisihed_three_piles_empty(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -1142,7 +1130,7 @@ class DominionEndOfGame(absltest.TestCase):
         self.assertTrue(state.game_finished())
 
     def test_returns(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         while state.is_chance_node():
@@ -1162,7 +1150,7 @@ def make_params(state):
 
 class DominionGameStateObserver(absltest.TestCase):   
     def test_obs_tensor(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         params = make_params(state)
@@ -1176,7 +1164,7 @@ class DominionGameStateObserver(absltest.TestCase):
         self.assertNotEmpty(observation.tensor)
 
     def test_obs_str(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         params = make_params(state)
@@ -1193,7 +1181,7 @@ class DominionGameStateObserver(absltest.TestCase):
         self.assertEqual(obs_str,'p0: \nkingdom supply piles: Council Room: 10, Laboratory: 10, Festival: 10, Market: 10, Smithy: 10, Militia: 10, Gardens: 8, Chapel: 10, Witch: 10, Moat: 10\ntreasure supply piles: Copper: 46, Silver: 40, Gold: 30\nvictory supply piles: Curse: 10, Estate: 8, Duchy: 8, Province: 8\nvictory points: p0: 3, p1: 3\nTurn Phase: TREASURE_PHASE\nactions: 1\nbuys: 1\ncoin: 0\ndraw pile: Copper: 2, Estate: 3\nhand: Copper: 5\ncards in play: empty\ndiscard pile: empty\ntrash pile: empty\neffect: none')
    
     def test_obs_dict(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         params = make_params(state)
@@ -1210,7 +1198,7 @@ class DominionGameStateObserver(absltest.TestCase):
         self.assertEqual(str(observation.dict),"{'kingdom_cards_in_play': array([0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,\n       0, 0, 0, 1]), 'kingdom_piles': array([ 0, 10, 10, 10, 10, 10,  8, 10, 10,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0, 10,  0,  0,  0,  0,  0, 10]), 'treasure_piles': array([46, 40, 30]), 'victory_piles': array([10,  8,  8,  8]), 'victory_points': array([3, 3]), 'TurnPhase': array([2]), 'actions': array([1]), 'buys': array([1]), 'coins': array([0]), 'draw': array([2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'hand': array([5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'cards_in_play': array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'discard': array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'trash': array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'effect': array([0])}")
 
     def test_obs_tensor(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat' }
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat' }
         game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         observer = game.make_py_observer()
@@ -1225,25 +1213,26 @@ class DominionGameStateObserver(absltest.TestCase):
         
 class DominionGameStrings(absltest.TestCase):
     def test_initial_draw_strings(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat'}
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat'}
         game = pyspiel.load_game("python_dom", params)
         state = game.new_initial_state()
         s = state.action_to_string(dominion.COPPER.id)
         self.assertEqual(s,"Add Copper to p1's initial draw pile")
 
     def test_inital_supply_string(self):
-        game = pyspiel.load_game("python_dom")
+        params = {'num_players': 2, 'random_kingdom_cards': True}
+        game = pyspiel.load_game("python_dom",params)
         state = game.new_initial_state()
         s = state.action_to_string(dominion.VASSAL.id)
         self.assertAlmostEqual(s,"Add Vassal to the available kingdom supply piles")
 
     def test_card_strings(self):
         card = dominion.COPPER
-        self.assertEqual("Play Copper", card.action_to_string(dominion.COPPER.play))
-        self.assertEqual("Buy Copper", card.action_to_string(dominion.COPPER.buy))
-        self.assertEqual("Discard Copper", card.action_to_string(dominion.COPPER.discard))
-        self.assertEqual("Trash Copper", card.action_to_string(dominion.COPPER.trash))
-        self.assertEqual("Gain Copper", card.action_to_string(dominion.COPPER.gain))
+        self.assertEqual("Play Copper", card._action_to_string(dominion.COPPER.play))
+        self.assertEqual("Buy Copper", card._action_to_string(dominion.COPPER.buy))
+        self.assertEqual("Discard Copper", card._action_to_string(dominion.COPPER.discard))
+        self.assertEqual("Trash Copper", card._action_to_string(dominion.COPPER.trash))
+        self.assertEqual("Gain Copper", card._action_to_string(dominion.COPPER.gain))
 
     def test_endphase_string(self):
         game = pyspiel.load_game("python_dom")
@@ -1255,10 +1244,70 @@ class DominionGameStrings(absltest.TestCase):
             state.apply_action(action)
         s = state.action_to_string(dominion.END_PHASE_ACTION)
         self.assertEqual(s,"End TREASURE_PHASE")
+    
+    def test_trash_cards_effect_string(self):
+        effect = dominion.TrashCardsEffect(3)
+        self.assertEqual(str(effect),"Trash up to 3 cards")
+        self.assertEqual(effect._action_to_string(0,dominion.COPPER.trash),"Trash Copper")
+        self.assertEqual(effect._action_to_string(0,dominion.END_PHASE_ACTION),"End trash effect")
+
+    def test_discard_down_to_effect_string(self):
+        effect = dominion.DiscardDownToEffect(2)
+        self.assertEqual(str(effect),"Discard down to 2 cards")
+        self.assertEqual(effect._action_to_string(0,dominion.COPPER.discard),"Discard Copper")
+
+    def test_discard_down_to_effect_string(self):
+        effect = dominion.OpponentsDiscardDownToEffect(2)
+        self.assertEqual(str(effect),"Opponents discard down to 2 cards")
+        self.assertEqual(effect._action_to_string(0,dominion.MOAT.play),"Play Moat and do not discard down to 2 cards")
+        self.assertEqual(effect._action_to_string(0,dominion.END_PHASE_ACTION),"Do not play Moat and discard down to 2 cards")
+
+    def test_opponents_gain_card_effect(self):
+        effect = dominion.GainCardToDiscardPileEffect(dominion.COPPER)
+        self.assertEqual(str(effect),"Gain Copper to discard pile")
+    
+    def test_opponents_gain_card_effect(self):
+        effect = dominion.OpponentsGainCardEffect(dominion.CURSE)
+        self.assertEqual(str(effect),"Opponents gain Curse to discard pile")
+        self.assertEqual(effect._action_to_string(0,dominion.MOAT.play),"Play Moat and do not gain Curse to discard pile")
+        self.assertEqual(effect._action_to_string(0,dominion.END_PHASE_ACTION),"Do not play Moat and gain Curse to discard pile")
+
+    def test_opponents_gain_to_hand_effect(self):
+        effect = dominion.OpponentsGainCardToHandEffect(2)
+        self.assertEqual(str(effect),"Opponents gain 2 cards to their hand")
+
+    def test_choose_pile_to_gain_effect(self):
+        effect = dominion.TrashAndGainCostEffect(add_cost=2,gain_exact_cost=False)
+        self.assertEqual(str(effect),"Trash a card from hand, gain a card costing up to more than 2 the card trashed")
+        self.assertEqual(effect._action_to_string(0,dominion.SILVER.trash),"Trash Silver")
+
+    def test_trash_treasure_and_gain_effect(self):
+        effect = dominion.TrashTreasureAndGainCoinEffect(treasure_card=dominion.COPPER,n_coins=2)
+        self.assertEqual(str(effect),"Trash Copper from hand. Gain 2 coins")
+        self.assertEqual(effect._action_to_string(0,dominion.END_PHASE_ACTION),"Do not trash Copper and do not gain 2 coins")
+        self.assertEqual(effect._action_to_string(0,dominion.COPPER.trash),"Trash Copper")
+
+    def test_poacher_effect(self):
+        effect = dominion.PoacherEffect()
+        self.assertEqual(str(effect),"Discard a card per empty supply pile")
+        self.assertEqual(effect._action_to_string(0,dominion.COPPER.discard),"Discard Copper")
+
+    def test_cellar_effect(self):
+        effect = dominion.CellarEffect()
+        self.assertEqual(str(effect),"Discard any number of cards, then draw that many")
+        self.assertEqual(effect._action_to_string(0,dominion.COPPER.discard),"Discard Copper")
+        self.assertEqual(effect._action_to_string(0,dominion.END_PHASE_ACTION),"End discard")
+   
+
+    def test_string(self):
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat'}
+        game = pyspiel.load_game("python_dom", params)
+        state = game.new_initial_state()
+        self.assertEqual(str(state),"kingdom supply piles: Council Room: 10, Laboratory: 10, Festival: 10, Market: 10, Smithy: 10, Militia: 10, Gardens: 8, Chapel: 10, Witch: 10, Moat: 10\ntreasure supply piles: Copper: 46, Silver: 40, Gold: 30\nvictory supply piles: Curse: 10, Estate: 8, Duchy: 8, Province: 8\nvictory points: p0: 0, p1: 0\nturn phase: TREASURE_PHASE\ncurrent player:PlayerId.CHANCE\np0:\n\tdraw_pile: Empty\n\thand: Empty\n\tdiscard_pile: Empty\n\ttrash_pile: Empty\n\tcards_in_play: Empty\n\tnum_actions: 1\n\tnum_buys: 1\n\tnum_coins: 0\np1:\n\tdraw_pile: Empty\n\thand: Empty\n\tdiscard_pile: Empty\n\ttrash_pile: Empty\n\tcards_in_play: Empty\n\tnum_actions: 1\n\tnum_buys: 1\n\tnum_coins: 0\nEffect Prompt: None")
 
 class DominionGameBots(absltest.TestCase):
      def test_game_BigMoneyBotWinsAgainstRandomBot(self):
-        params = {'num_players': 2, 'kingdom_cards': 'Council Room,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Moat'}
+        params = {'num_players': 2, 'kingdom_cards': 'Council Room; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Moat'}
         num_sims = 2
         for _ in range(num_sims):
             game = pyspiel.load_game("python_dom",params)

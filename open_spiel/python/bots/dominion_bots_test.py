@@ -10,7 +10,7 @@ from open_spiel.python.games import dominion
 
 FLAGS = flags.FLAGS
 
-KINGDOM_CARDS = "Village,Laboratory,Festival,Market,Smithy,Militia,Gardens,Chapel,Witch,Workshop"
+KINGDOM_CARDS = "Village; Laboratory; Festival; Market; Smithy; Militia; Gardens; Chapel; Witch; Workshop"
 NUM_PLAYERS = 2
 params = {'num_players': NUM_PLAYERS, 'kingdom_cards': KINGDOM_CARDS}
 
