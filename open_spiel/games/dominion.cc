@@ -21,8 +21,17 @@
 #include <vector>
 #include <map>
 #include <string>
+
+#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
+#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
+#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
+#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "open_spiel/game_parameters.h"
+#include "open_spiel/spiel.h"
+#include "open_spiel/spiel_globals.h"
 #include "open_spiel/spiel_utils.h"
-#include "open_spiel/utils/tensor_view.h"
+#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
+#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
 
 namespace open_spiel {
 namespace dominion {
@@ -54,16 +63,30 @@ REGISTER_SPIEL_GAME(kGameType, Factory);
 
 }  // namespace
 
+const char* GetTurnPhaseStrings(int enumVal){
+  return TurnPhaseStrings[enumVal];
+}
+
+
 Card::Card(int id, std::string name, int cost)
 {
   id_ = id;
   name_ = name;
   play_ =  id;
-  buy_ = 2 * id + kNumCards;
-  trash_ = 3 * id + kNumCards;
-  discard_ = 4 * id + kNumCards;
-  gain_ = 5 * id + kNumCards;
+  buy_ = 2 * kNumCards + id;
+  trash_ = 3 * kNumCards + id;
+  discard_ = 4 * kNumCards + id;
+  gain_ = 5 * kNumCards + id;
+  reveal_ = 6 * kNumCards + id;
   cost_ = cost;
+  action_strs_ = {
+    {play_, "Play"},
+    {buy_, "Buy"},
+    {trash_, "Trash"},
+    {discard_, "Discard"},
+    {gain_, "Gain"},
+    {reveal_, "Reveal"}
+  };
 }
 
 void PlayerState::DrawHand(int num_cards){
@@ -80,23 +103,35 @@ void PlayerState::DrawHand(int num_cards){
 void PlayerState::PlayTreasureCard(const Card* card){
   addCoins(card->GetCoins());
   cards_in_play_.push_back(card);
-  auto it = std::find(hand_.begin(),hand_.end(),card);
+  auto it = absl::c_find(hand_,card);
   hand_.erase(it);
 }
 
-int PlayerState::GetVictoryPoints() const {
-  int vp = 0;
-  for(const Card* card : GetAllCards()){
-    if(card->getCardType() == VICTORY){
-      vp += card->GetVictoryPoints();
-    }
+void PlayerState::PlayActionCard(const Card* card){
+  cards_in_play_.push_back(card);
+  auto it = absl::c_find_if(hand_,[card](const Card* c){
+    return card->GetId() == c->GetId(); 
+  });
+  if(it == hand_.end()) std::cout << "error";
+  hand_.erase(it);
+  actions_ -= 1;
+  actions_ += card->GetAddActions();
+  buys_ += card->GetAddBuys();
+  coins_ += card->GetCoins();
+  if(card->GetAddCards() != 0){
+    DrawHand(card->GetAddCards());
   }
-  return vp;
+}
+
+int PlayerState::GetVictoryPoints() const {
+  return absl::c_accumulate(GetAllCards(),0,[](int vp, const Card* card){
+    return card->getCardType() == VICTORY ? vp + card->GetVictoryPoints() : vp;
+  });
 }
 
 void PlayerState::BuyCard(const Card* card){
-  draw_pile_.push_back(card);
-  coins_ -= card->GetCoins();
+  discard_pile_.push_back(card);
+  coins_ -= card->GetCost();
   buys_ -= 1;
 }
 
@@ -105,9 +140,16 @@ void PlayerState::AddToDrawPile(const Card* card){
 }
 
 void PlayerState::RemoveFromDiscardPile(const Card* card){
-  auto it = std::find(discard_pile_.begin(),discard_pile_.end(),card);
+  auto it = absl::c_find(discard_pile_,card);
   if(it != discard_pile_.end()){
     discard_pile_.erase(it);
+  }
+}
+
+void PlayerState::RemoveFromDrawPile(const Card* card){
+  auto it = absl::c_find(draw_pile_,card);
+  if(it != draw_pile_.end()){
+    draw_pile_.erase(it);
   }
 }
 
@@ -127,6 +169,7 @@ TurnPhase PlayerState::EndPhase(){
   case ActionPhase:
     turn_phase_ = TreasurePhase;
     break;
+    
   case TreasurePhase:
     turn_phase_ = BuyPhase;
     break;
@@ -142,14 +185,14 @@ void PlayerState::AddHandInPlayCardsToDiscardPile() {
 }
 
 bool PlayerState::HasActionCardsInHand() const {
-	return std::find_if(hand_.begin(),hand_.end(),[](const Card* card){
-		return card->getCardType() == CardType::ACTION;
-	}) != hand_.end();
+  return absl::c_find_if(hand_,[](const Card* card){
+    return card->getCardType() == CardType::ACTION;
+  }) != hand_.end();
 }
 
 void PlayerState::EndTurn() {
 	AddHandInPlayCardsToDiscardPile();
-	DrawHand();
+	DrawHand(kHandSize);
 	actions_ = 1;
 	buys_ = 1;
 	coins_ = 0;
@@ -184,6 +227,32 @@ std::map<std::string,SupplyPile> createVictoryPiles(){
   return victoryPiles;
 }
 
+
+std::map<std::string,SupplyPile> createKingdomPiles(){
+  std::map<std::string,SupplyPile>kingdom_piles;
+  SupplyPile village_supply(&VILLAGE,10);
+  SupplyPile lab_supply(&LABORATORY,8);
+  SupplyPile festival_supply(&FESTIVAL,8);
+  SupplyPile market_supply(&MARKET,8);
+  SupplyPile smithy_supply(&SMITHY,8);
+  SupplyPile militia_supply(&MILITIA,8);
+  SupplyPile gardens_supply(&GARDENS,8);
+  SupplyPile chapel_supply(&CHAPEL,8);
+  SupplyPile witch_supply(&WITCH,8);
+  SupplyPile workshop_supply(&WORKSHOP,8);
+
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Village",village_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Laboratory",lab_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Festival",festival_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Market",market_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Smithy",smithy_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Militia",militia_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Festival",festival_supply));
+  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Market",market_supply));
+
+  return kingdom_piles;
+}
+
 void DominionState::DoApplyPlayTreasureCard(const Card* card){
   players_[current_player_].PlayTreasureCard(card);
 }
@@ -209,6 +278,8 @@ void DominionState::DoApplyAction(Action action_id) {
   if(IsChanceNode()){
     DoApplyChanceAction(action_id);
   }else{
+    std::vector<Action> legal_actions = LegalActions();
+    SPIEL_CHECK_EQ(absl::c_count(legal_actions,action_id),1);
     if(action_id == END_PHASE_ACTION){
       DoApplyEndPhaseAction();
     }else{
@@ -216,10 +287,13 @@ void DominionState::DoApplyAction(Action action_id) {
       switch (players_[current_player_].GetTurnPhase())
       {
       case TreasurePhase:
-        DoApplyPlayTreasureCard(card);
+        players_[current_player_].PlayTreasureCard(card);
         break;
       case BuyPhase:
         DoApplyBuyCard(card);
+        break;
+      case ActionPhase:
+        players_[current_player_].PlayActionCard(card);
         break;
       default:
         break;
@@ -231,8 +305,8 @@ void DominionState::DoApplyAction(Action action_id) {
 
 std::vector<std::pair<Action, double>> DominionState::GetInitSupplyChanceOutcomes() const {
   const std::list<const Card*> draw_pile = players_.at(current_player_).GetDrawPile(); 
-  const int num_coppers = std::count_if(draw_pile.begin(),draw_pile.end(),[](const Card* card){return card->GetId() == COPPER.GetId();});
-  const int num_estates = std::count_if(draw_pile.begin(),draw_pile.end(),[](const Card* card){return  card->GetId() == ESTATE.GetId();});
+  const int num_coppers = absl::c_count_if(draw_pile,[](const Card* card){return card->GetId() == COPPER.GetId();});
+  const int num_estates = absl::c_count_if(draw_pile,[](const Card* card){return card->GetId() == ESTATE.GetId();});
   const double total = kInitSupply - (num_coppers + num_estates);
   const double copper_p = (kInitCoppers - num_coppers) / total;
   const double estate_p = (kInitEstates - num_estates) / total;
@@ -243,11 +317,10 @@ std::vector<std::pair<Action, double>> DominionState::GetInitSupplyChanceOutcome
 }
 
 std::vector<std::pair<Action, double>> DominionState::GetAddDiscardPileToDrawPileChanceOutcomes() const { 
-  auto player = std::find_if(players_.begin(),players_.end(),[](PlayerState playerState){return playerState.GetAddDiscardPileToDrawPile();});
+  auto player = absl::c_find_if(players_,[](PlayerState playerState) {
+    return playerState.GetAddDiscardPileToDrawPile();
+  });
   std::list<const Card*> discard_pile = player->GetDiscardPile();
-  for(auto card: discard_pile){
-    std::cout << card->getName();
-  }
   std::set<const Card*> unique_discard_pile(discard_pile.begin(),discard_pile.end());
   std::unordered_map<int,int> counter;
   for(auto card : discard_pile){
@@ -260,8 +333,8 @@ std::vector<std::pair<Action, double>> DominionState::GetAddDiscardPileToDrawPil
     int card_count = counter.find(card->GetId())->second;
     outcomes.push_back(std::pair<Action,double>(card->GetId(),card_count/total_cards));
   }
-  std::sort(outcomes.begin(),outcomes.end(),[](std::pair<Action,double> outcome1, std::pair<Action,double> outcome2){
-    return outcome1 < outcome2;
+  absl::c_sort(outcomes,[](std::pair<Action,double> outcome1, std::pair<Action,double> outcome2){
+    return outcome1.first < outcome2.first;
   });
   return outcomes;
 }
@@ -276,30 +349,43 @@ std::vector<std::pair<Action, double>> DominionState::ChanceOutcomes() const {
  }
 
  std::vector<Action> DominionState::LegalTreasurePhaseActions() const {
-  PlayerState player_state = players_.at(current_player_);
-  std::set<Action> moves;
-  for(const Card* card : player_state.GetHand()){
-    if(card->getCardType() == TREASURE){
+  std::list<const Card*> hand = players_.at(current_player_).GetHand();
+  std::unordered_set<Action> moves;
+  absl::c_for_each(hand,[&moves](const Card* card){
+    if(card->getCardType() == TREASURE)
       moves.insert(card->GetPlay());
-    }
-  }
+  });
   moves.insert(END_PHASE_ACTION);
-  std::vector legal_actions(moves.begin(),moves.end());
-  std::sort(legal_actions.begin(),legal_actions.end());
+  std::vector<Action> legal_actions(moves.begin(),moves.end());
+  absl::c_sort(legal_actions);
   return legal_actions;
  }
 
  std::vector<Action> DominionState::LegalBuyPhaseActions() const {
   int coins = players_.at(current_player_).GetCoins();
-  std::set<Action> moves;
-  for(std::pair<std::string,SupplyPile> pile: supply_piles_){
+  std::unordered_set<Action> moves;
+  absl::c_for_each(supply_piles_,[&moves,coins](std::pair<std::string,SupplyPile> pile){
     if(!pile.second.isEmpty() && pile.second.getCard()->GetCost() <= coins){
       moves.insert(pile.second.getCard()->GetBuy());
     }
-  }
+  });
   moves.insert(END_PHASE_ACTION);
-  std::vector legal_actions(moves.begin(),moves.end());
-  std::sort(legal_actions.begin(),legal_actions.end());
+  std::vector<Action> legal_actions(moves.begin(),moves.end());
+  absl::c_sort(legal_actions);
+  return legal_actions;
+ }
+
+ std::vector<Action> DominionState::LegalActionPhaseActions() const {
+  if(players_.at(current_player_).GetActions() == 0) return {END_PHASE_ACTION};
+  std::list<const Card*> hand = players_.at(current_player_).GetHand();
+  std::unordered_set<Action> moves;
+  absl::c_for_each(hand,[&moves](const Card* card){
+     if(card->getCardType() == ACTION)
+      moves.insert(card->GetPlay());
+  });
+  moves.insert(END_PHASE_ACTION);
+  std::vector<Action> legal_actions(moves.begin(),moves.end());
+  absl::c_sort(legal_actions);
   return legal_actions;
  }
 
@@ -311,6 +397,8 @@ std::vector<Action> DominionState::LegalActions() const {
     return LegalTreasurePhaseActions();
   case BuyPhase:
     return LegalBuyPhaseActions();
+  case ActionPhase:
+    return LegalActionPhaseActions();
   default:
     return {};
   }
@@ -318,15 +406,24 @@ std::vector<Action> DominionState::LegalActions() const {
 
 std::string DominionState::ActionToString(Player player,
                                            Action action_id) const {
-  return "";
+  std::string str;
+  if(action_id == END_PHASE_ACTION){
+    TurnPhase phase = players_.at(current_player_).GetTurnPhase();
+    absl::StrAppend(&str,"End ",std::string(GetTurnPhaseStrings(phase)));
+  }else{
+    const Card* card = GetCard(action_id);
+    absl::StrAppend(&str,card->ActionToString(action_id)," ",card->getName());
+  }
+  return str;
 }
 
 DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
   std::map<std::string,SupplyPile> victory_piles = createVictoryPiles();
   std::map<std::string,SupplyPile> treasure_piles = createTreasurePiles();
+  std::map<std::string,SupplyPile> kingdom_piles = createKingdomPiles();
   supply_piles_.insert(victory_piles.begin(),victory_piles.end());
   supply_piles_.insert(treasure_piles.begin(),treasure_piles.end());
-
+  supply_piles_.insert(kingdom_piles.begin(),kingdom_piles.end());
 }
 
 std::string DominionState::ToString() const {
@@ -336,8 +433,8 @@ std::string DominionState::ToString() const {
 
 bool DominionState::GameFinished() const {
   SupplyPile provincePile = supply_piles_.find("province")->second;
-  const int num_empty_piles = std::count_if(supply_piles_.begin(),supply_piles_.end(),[](std::pair<std::string,SupplyPile> entry){
-    return entry.second.isEmpty();
+  int num_empty_piles = absl::c_count_if(supply_piles_,[](std::pair<std::string,SupplyPile> pair){
+    return pair.second.isEmpty();
   });
   return provincePile.isEmpty() || num_empty_piles == 3;
 }
@@ -347,7 +444,7 @@ bool DominionState::IsTerminal() const {
 }
 
 const Card* DominionState::GetCard(Action action_id) const {
-  return all_cards.at(action_id % all_cards.size() - 1);
+  return all_cards.at(action_id % all_cards.size());
 }
 
 void DominionState::DoApplyInitialSupplyChanceAction(Action action_id){
@@ -355,15 +452,15 @@ void DominionState::DoApplyInitialSupplyChanceAction(Action action_id){
   players_.at(current_player_).AddToDrawPile(card);
   if(EachPlayerReceivedInitSupply()){
     current_player_ = 0;
-    std::for_each(players_.begin(),players_.end(),[](PlayerState& player){
-      player.DrawHand();
+    absl::c_for_each(players_,[](PlayerState& player){
+      player.DrawHand(kHandSize);
     });
   }else {
-    auto playerState = std::find_if(players_.begin(),players_.end(),[](PlayerState player_state){
+    auto player_state = absl::c_find_if(players_,[](PlayerState player_state){
       return player_state.GetAllCards().size() < kInitSupply;
     });
-    if(playerState != players_.end()){
-      current_player_ = playerState->GetId();
+    if(player_state != players_.end()){
+      current_player_ = player_state->GetId();
     }
   }
 }
@@ -394,13 +491,13 @@ void DominionState::DoApplyChanceAction(Action action_id){
 }
 
 bool DominionState::AddDiscardPileToDrawPile() const {
-  return std::find_if(players_.begin(),players_.end(),[](PlayerState playerState){
+  return absl::c_find_if(players_,[](PlayerState playerState){
     return playerState.GetAddDiscardPileToDrawPile();
   }) != players_.end();
 }
 
 bool DominionState::EachPlayerReceivedInitSupply() const {
-  return std::count_if(players_.begin(),players_.end(),[](PlayerState playerState){
+  return absl::c_count_if(players_,[](PlayerState playerState){
     return playerState.GetAllCards().size() >= kInitSupply;
   }) == kNumPlayers;
 }

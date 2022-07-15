@@ -2,11 +2,12 @@
 #include "open_spiel/tests/basic_tests.h"
 #include "open_spiel/games/dominion.h"
 #include "open_spiel/spiel_utils.h"
+#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
 
 namespace open_spiel {
-namespace domninion {
-using namespace dominion;
+namespace dominion {
 namespace {
+using namespace dominion;
 
 namespace testing = open_spiel::testing;
 
@@ -34,14 +35,10 @@ void InitialPlayerState(){
         SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
     state.DoApplyAction(outcome);
   }
-  std::list<const Card*> player_0_all_cards = state.getPlayers().at(0).GetAllCards();
-  std::list<const Card*> player_1_all_cards = state.getPlayers().at(1).GetAllCards();
-  const int num_coppers_p0 = std::count_if(player_0_all_cards.begin(),player_0_all_cards.end(),IsCopper);
-  const int num_estates_p0 = std::count_if(player_0_all_cards.begin(),player_0_all_cards.end(),IsEstate);
-  const int num_coppers_p1 = std::count_if(player_1_all_cards.begin(),player_1_all_cards.end(),IsCopper);
-  const int num_estates_p1 = std::count_if(player_1_all_cards.begin(),player_1_all_cards.end(),IsEstate);
-  SPIEL_CHECK_EQ(player_0_all_cards.size(),kInitSupply);
-  SPIEL_CHECK_EQ(player_1_all_cards.size(),kInitSupply);
+  const int num_coppers_p0 = absl::c_count_if(state.GetPlayerState(0).GetAllCards(),IsCopper);
+  const int num_estates_p0 = absl::c_count_if(state.GetPlayerState(0).GetAllCards(),IsEstate);
+  const int num_coppers_p1 = absl::c_count_if(state.GetPlayerState(1).GetAllCards(),IsCopper);
+  const int num_estates_p1 = absl::c_count_if(state.GetPlayerState(1).GetAllCards(),IsEstate);
   SPIEL_CHECK_EQ(num_coppers_p0,kInitCoppers);
   SPIEL_CHECK_EQ(num_estates_p0,kInitEstates);
   SPIEL_CHECK_EQ(num_coppers_p1,kInitCoppers);
@@ -59,7 +56,7 @@ void PlayTreasureCard() {
   DominionState state(game);
   while(state.IsChanceNode()){
      std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
-     bool has_copper = std::find_if(outcomes.begin(),outcomes.end(),[](std::pair<Action,double> outcome){
+     bool has_copper = absl::c_find_if(outcomes,[](std::pair<Action,double> outcome){
       return outcome.first == COPPER.GetId();
      }) != outcomes.end();
     if(has_copper){
@@ -82,47 +79,7 @@ void BuyTreasureCard() {
   DominionState state(game);
   while(state.IsChanceNode()){
     std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
-    bool has_copper = std::find_if(outcomes.begin(),outcomes.end(),[](std::pair<Action,double> outcome){
-      return outcome.first == COPPER.GetId();
-     }) != outcomes.end();
-    if(has_copper){
-      state.DoApplyAction(COPPER.GetId());
-    }else{
-      state.DoApplyAction(ESTATE.GetId());
-    }
-  }
-  for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
-    state.DoApplyAction(action);
-  }
-  std::set<Action> cards_costing_less_eq_2;
-  for(const Card* card : all_cards){
-    if(card->GetCost() <=2){
-      cards_costing_less_eq_2.insert(card->GetBuy());
-    }
-  }
-  std::vector<Action> legal_actions(cards_costing_less_eq_2.begin(),cards_costing_less_eq_2.end());
-  legal_actions.push_back(END_PHASE_ACTION);
-  std::sort(legal_actions.begin(),legal_actions.end());
-  SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
-  state.DoApplyAction(SILVER.GetBuy());
-  PlayerState currentPlayerState = state.getPlayers().at(0);
-  std::list<const Card*> draw_pile = currentPlayerState.GetDrawPile();
-  const int num_silver = std::count_if(draw_pile.begin(),draw_pile.end(),[](const Card* card){
-    return card->GetId() == SILVER.GetId();
-  });
-  SPIEL_CHECK_EQ(num_silver,1);
-  SPIEL_CHECK_EQ(currentPlayerState.GetBuys(),0);
-  SPIEL_CHECK_EQ(currentPlayerState.GetCoins(),0);
-  state.DoApplyAction(END_PHASE_ACTION);
-  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
-}
-
-void BuyVictoryCard() {
- std::shared_ptr<const Game> game = LoadGame("dominion");
-  DominionState state(game);
-  while(state.IsChanceNode()){
-    std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
-    bool has_copper = std::find_if(outcomes.begin(),outcomes.end(),[](std::pair<Action,double> outcome){
+    bool has_copper = absl::c_find_if(outcomes,[](std::pair<Action,double> outcome){
       return outcome.first == COPPER.GetId();
      }) != outcomes.end();
     if(has_copper){
@@ -134,25 +91,56 @@ void BuyVictoryCard() {
   for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
     state.DoApplyAction(action);
   }
+  std::vector<Action> expected_actions{COPPER.GetBuy(),SILVER.GetBuy(),ESTATE.GetBuy(),VILLAGE.GetBuy(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetCoins(),3);
+  SPIEL_CHECK_EQ(state.LegalActions(),expected_actions);
+  state.DoApplyAction(SILVER.GetBuy());
+  SPIEL_CHECK_EQ(state.getPlayers().at(0).GetCoins(),0);
+  SPIEL_CHECK_EQ(state.getPlayers().at(0).GetBuys(),0);
+  const int num_silver = absl::c_count_if(state.GetCurrentPlayerState().GetDiscardPile(),[](const Card* card){
+    return card->GetId() == SILVER.GetId();
+  });
+  SPIEL_CHECK_EQ(num_silver,1);
+}
+
+void BuyVictoryCard() {
+ std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game);
+  while(state.IsChanceNode()){
+    std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
+    bool has_copper = absl::c_find_if(outcomes,[](std::pair<Action,double> outcome){
+      return outcome.first == COPPER.GetId();
+     }) != outcomes.end();
+    if(has_copper){
+      state.DoApplyAction(COPPER.GetId());
+    }else{
+      state.DoApplyAction(ESTATE.GetId());
+    }
+  }
+  for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
+    state.DoApplyAction(action);
+  }
   state.DoApplyAction(DUCHY.GetBuy());
-  PlayerState currentPlayerState = state.getPlayers().at(0);
-  std::list<const Card*> draw_pile = currentPlayerState.GetDrawPile();
-  const int num_duchy = std::count_if(draw_pile.begin(),draw_pile.end(),[](const Card* card){
+  PlayerState& currentPlayerState = state.GetCurrentPlayerState();
+  std::list<const Card*> discard_pile = currentPlayerState.GetDiscardPile();
+  const int num_duchy = std::count_if(discard_pile.begin(),discard_pile.end(),[](const Card* card){
     return card->GetId() == DUCHY.GetId();
   });
   SPIEL_CHECK_EQ(num_duchy,1);
   SPIEL_CHECK_EQ(currentPlayerState.GetBuys(),0);
   SPIEL_CHECK_EQ(currentPlayerState.GetCoins(),0);
-  SPIEL_CHECK_EQ(currentPlayerState.GetVictoryPoints(),1);
+  SPIEL_CHECK_EQ(currentPlayerState.GetVictoryPoints(),3);
   state.DoApplyAction(END_PHASE_ACTION);
   SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+
 }
+
 void SkipBuyPhase() {
  std::shared_ptr<const Game> game = LoadGame("dominion");
   DominionState state(game);
   while(state.IsChanceNode()){
     std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
-    bool has_copper = std::find_if(outcomes.begin(),outcomes.end(),[](std::pair<Action,double> outcome){
+    bool has_copper = absl::c_find_if(outcomes,[](std::pair<Action,double> outcome){
       return outcome.first == COPPER.GetId();
      }) != outcomes.end();
     if(has_copper){
@@ -176,9 +164,13 @@ void TestEndTurnAddCardsFromDisacrdToDrawPile(){
     Action outcome = SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
     state.DoApplyAction(outcome);
   }
-  for(int i = 0; i < 6; i++){
-    state.DoApplyAction(END_PHASE_ACTION);
-  }
+    
+  state.ApplyAction(END_PHASE_ACTION);
+  state.ApplyAction(END_PHASE_ACTION);
+  state.ApplyAction(END_PHASE_ACTION);
+  state.ApplyAction(END_PHASE_ACTION);
+  state.ApplyAction(END_PHASE_ACTION);
+  state.ApplyAction(END_PHASE_ACTION);
 
   SPIEL_CHECK_TRUE(state.GetPlayerState(0).GetDrawPile().empty());
   SPIEL_CHECK_TRUE(state.GetPlayerState(0).GetHand().empty());
@@ -195,18 +187,201 @@ void TestEndTurnAddCardsFromDisacrdToDrawPile(){
 
 }
 
-
-
+void TestBuyAction() {
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game);
+  while(state.IsChanceNode()){
+    std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
+    bool has_copper = absl::c_find_if(outcomes,[](std::pair<Action,double> outcome){
+      return outcome.first == COPPER.GetId();
+    }) != outcomes.end();
+    if(has_copper){
+      state.DoApplyAction(COPPER.GetId());
+    }else{
+      state.DoApplyAction(ESTATE.GetId());
+    }
+  }
+  for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
+    state.DoApplyAction(action);
+  }
+  state.DoApplyAction(VILLAGE.GetBuy());
+  std::list<const Card*> discard_pile = state.GetPlayerState(0).GetDiscardPile();
+  const int num_village = std::count_if(discard_pile.begin(),discard_pile.end(),[](const Card* card){
+    return card->GetId() == VILLAGE.GetId();
+  });
+  SPIEL_CHECK_EQ(num_village,1);
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetBuys(),0);
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetCoins(),2);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+}
 } // namespace
+
+namespace action_card_tests {
+  void PlayVillage() {
+    // Playing Village adds 1 card to hand, 2 actions 
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    DominionState state(game);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.GetCurrentPlayerState().AddFrontToDrawPile(&VILLAGE);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+    state.DoApplyAction(VILLAGE.GetPlay());
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetActions(),2);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),5);
+  };
+   void TestLaboratory() {
+    // Playing Laboratory adds 2 cards, 1 action 
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    DominionState state(game);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.GetCurrentPlayerState().AddFrontToDrawPile(&LABORATORY);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+    state.DoApplyAction(LABORATORY.GetPlay());
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetDrawPile().size(),1);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetActions(),1);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),6);
+  };
+  void TestFestival() {
+    // Playing Festival adds 2 actions, 1 buys, 2 coins 
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    DominionState state(game);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.GetCurrentPlayerState().AddFrontToDrawPile(&FESTIVAL);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+    state.DoApplyAction(FESTIVAL.GetPlay());
+
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetActions(),2);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetBuys(),2);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
+  };
+  void TestMarket(){
+    // Playing Market adds 1 action, 1 buy, 1 coin, 1 card 
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    DominionState state(game);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.GetCurrentPlayerState().AddFrontToDrawPile(&MARKET);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+    state.DoApplyAction(MARKET.GetPlay());
+
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetActions(),1);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetBuys(),2);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),1);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),5);
+  }
+  void TestSmithy(){
+    // Playing Smithy adds 3 cards
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    DominionState state(game);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.GetCurrentPlayerState().AddFrontToDrawPile(&SMITHY);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+    state.DoApplyAction(SMITHY.GetPlay());
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+  }
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),7);
+} 
+void TestMilitia(){
+    // Adds 2 coins, each other player discards down to 3 cards in hand.
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion");
+    DominionState state(game);
+    while(state.IsChanceNode()){
+      Action outcome =
+          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      state.DoApplyAction(outcome);
+    }
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+    state.DoApplyAction(END_PHASE_ACTION);
+    state.DoApplyAction(END_PHASE_ACTION);
+    SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+    state.DoApplyAction(MILITIA.GetPlay());
+    SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
+} 
+
+}//namespace action_card_tests
 }  // namespace dominion
 }  // namespace open_spiel
 
 int main(int argc, char** argv) {
-  open_spiel::domninion::BasicDominionTests();
-  open_spiel::domninion::InitialDominionGameStateTests();
-  open_spiel::domninion::InitialPlayerState();
-  open_spiel::domninion::PlayTreasureCard();
-  open_spiel::domninion::BuyTreasureCard();
-  open_spiel::domninion::SkipBuyPhase();
-  open_spiel::domninion::TestEndTurnAddCardsFromDisacrdToDrawPile();
+  open_spiel::dominion::BasicDominionTests();
+  open_spiel::dominion::InitialDominionGameStateTests();
+  open_spiel::dominion::InitialPlayerState();
+  open_spiel::dominion::PlayTreasureCard();
+  open_spiel::dominion::BuyTreasureCard();
+  open_spiel::dominion::BuyVictoryCard();
+  open_spiel::dominion::SkipBuyPhase();
+  open_spiel::dominion::TestBuyAction();
+  open_spiel::dominion::TestEndTurnAddCardsFromDisacrdToDrawPile();
+  open_spiel::dominion::action_card_tests::PlayVillage();
+  open_spiel::dominion::action_card_tests::TestLaboratory();
+  open_spiel::dominion::action_card_tests::TestFestival();
+  open_spiel::dominion::action_card_tests::TestMarket();
+  open_spiel::dominion::action_card_tests::TestSmithy();
 }
