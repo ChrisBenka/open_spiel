@@ -52,8 +52,10 @@ const GameType kGameType{
     /*provides_information_state_tensor=*/false,
     /*provides_observation_string=*/true,
     /*provides_observation_tensor=*/true,
-    /*parameter_specification=*/{}  // no parameters
-};
+    /*parameter_specification=*/{
+      {"kingdom_cards",GameParameter(kDefaultKingdomCards)}
+    }
+   };
 
 std::shared_ptr<const Game> Factory(const GameParameters& params) {
   return std::shared_ptr<const Game>(new DominionGame(params));
@@ -66,6 +68,7 @@ REGISTER_SPIEL_GAME(kGameType, Factory);
 const char* GetTurnPhaseStrings(int enumVal){
   return TurnPhaseStrings[enumVal];
 }
+
 
 
 Card::Card(int id, std::string name, int cost)
@@ -124,8 +127,12 @@ void PlayerState::PlayActionCard(const Card* card){
 }
 
 int PlayerState::GetVictoryPoints() const {
-  return absl::c_accumulate(GetAllCards(),0,[](int vp, const Card* card){
-    return card->getCardType() == VICTORY ? vp + card->GetVictoryPoints() : vp;
+  std::list<const Card*> cards = GetAllCards();
+  return absl::c_accumulate(cards,0,[cards](int vp, const Card* card){
+    return card->getCardType() == VICTORY ? 
+      card->GetVictoryPointsFn() ? vp + card->GetVictoryPointsFn()(cards) : 
+      vp + card->GetVictoryPoints()
+      : vp;
   });
 }
 
@@ -138,18 +145,28 @@ void PlayerState::BuyCard(const Card* card){
 void PlayerState::AddToDrawPile(const Card* card){
   draw_pile_.push_back(card);
 }
-
-void PlayerState::RemoveFromDiscardPile(const Card* card){
-  auto it = absl::c_find(discard_pile_,card);
-  if(it != discard_pile_.end()){
-    discard_pile_.erase(it);
+void PlayerState::RemoveFromPile(const Card* card, PileType pile){
+  std::list<const Card*> cards_;
+  switch (pile)
+  {
+  case HAND:
+    cards_ = hand_;
+    break;
+    
+  case DRAW:
+    cards_ = draw_pile_;
+    break;
+  case DISCARD:
+    cards_ = draw_pile_;
+    break;
+  case TRASH:
+    cards_ = trash_pile_;
+  default:
+    cards_ = draw_pile_;
   }
-}
-
-void PlayerState::RemoveFromDrawPile(const Card* card){
-  auto it = absl::c_find(draw_pile_,card);
-  if(it != draw_pile_.end()){
-    draw_pile_.erase(it);
+  auto it = absl::c_find(cards_,card);
+  if(it != cards_.end()){
+    cards_.erase(it);
   }
 }
 
@@ -228,28 +245,18 @@ std::map<std::string,SupplyPile> createVictoryPiles(){
 }
 
 
-std::map<std::string,SupplyPile> createKingdomPiles(){
-  std::map<std::string,SupplyPile>kingdom_piles;
-  SupplyPile village_supply(&VILLAGE,10);
-  SupplyPile lab_supply(&LABORATORY,8);
-  SupplyPile festival_supply(&FESTIVAL,8);
-  SupplyPile market_supply(&MARKET,8);
-  SupplyPile smithy_supply(&SMITHY,8);
-  SupplyPile militia_supply(&MILITIA,8);
-  SupplyPile gardens_supply(&GARDENS,8);
-  SupplyPile chapel_supply(&CHAPEL,8);
-  SupplyPile witch_supply(&WITCH,8);
-  SupplyPile workshop_supply(&WORKSHOP,8);
-
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Village",village_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Laboratory",lab_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Festival",festival_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Market",market_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Smithy",smithy_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Militia",militia_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Festival",festival_supply));
-  kingdom_piles.insert(std::pair<std::string,SupplyPile>("Market",market_supply));
-
+std::map<std::string,SupplyPile> createKingdomPiles(std::vector<std::string> kingdom_cards){
+  std::vector<const Card*> cards;
+  for(const std::string card_nm : kingdom_cards){
+    auto card_itr = absl::c_find_if(all_cards,[card_nm](const Card* card){return card->getName().compare(card_nm) == 0;});
+    cards.push_back(*(card_itr));
+  }
+  std::map<std::string,SupplyPile> kingdom_piles;
+  for(const Card* card : cards){
+    int qty = card->getName() == GARDENS.getName() ? kGardenSupply : kInitSupply;
+    std::pair<std::string,SupplyPile> pile = {card->getName(),SupplyPile(card,qty)};
+    kingdom_piles.insert(pile);
+  }
   return kingdom_piles;
 }
 
@@ -417,13 +424,35 @@ std::string DominionState::ActionToString(Player player,
   return str;
 }
 
-DominionState::DominionState(std::shared_ptr<const Game> game) : State(game) {
+std::vector<std::string> splitString(std::string str, char splitter){
+    std::vector<std::string> result;
+    std::string current = ""; 
+
+    for(int i = 0; i < str.size(); i++){
+        if(str[i] == splitter){
+            if(current != ""){
+                result.push_back(current);
+                current = "";
+            } 
+            continue;
+        }
+        current += str[i];
+    }
+    if(current.size() != 0)
+        result.push_back(current);
+    return result;
+}
+
+DominionState::DominionState(std::shared_ptr<const Game> game, std::string kingdom_cards) : 
+kingdom_cards_(splitString(kingdom_cards,';')), State(game) {
   std::map<std::string,SupplyPile> victory_piles = createVictoryPiles();
   std::map<std::string,SupplyPile> treasure_piles = createTreasurePiles();
-  std::map<std::string,SupplyPile> kingdom_piles = createKingdomPiles();
+  if(kingdom_cards.length() != 0){
+    std::map<std::string,SupplyPile> kingdom_piles = createKingdomPiles(kingdom_cards_);
+    supply_piles_.insert(kingdom_piles.begin(),kingdom_piles.end());
+  }
   supply_piles_.insert(victory_piles.begin(),victory_piles.end());
   supply_piles_.insert(treasure_piles.begin(),treasure_piles.end());
-  supply_piles_.insert(kingdom_piles.begin(),kingdom_piles.end());
 }
 
 std::string DominionState::ToString() const {
@@ -443,10 +472,6 @@ bool DominionState::IsTerminal() const {
   return is_terminal_;
 }
 
-const Card* DominionState::GetCard(Action action_id) const {
-  return all_cards.at(action_id % all_cards.size());
-}
-
 void DominionState::DoApplyInitialSupplyChanceAction(Action action_id){
   const Card* card = GetCard(action_id);
   players_.at(current_player_).AddToDrawPile(card);
@@ -456,29 +481,42 @@ void DominionState::DoApplyInitialSupplyChanceAction(Action action_id){
       player.DrawHand(kHandSize);
     });
   }else {
-    auto player_state = absl::c_find_if(players_,[](PlayerState player_state){
+    auto player_itr = absl::c_find_if(players_,[](PlayerState player_state){
       return player_state.GetAllCards().size() < kInitSupply;
     });
-    if(player_state != players_.end()){
-      current_player_ = player_state->GetId();
+    if(player_itr != players_.end()){
+      current_player_ = player_itr->GetId();
     }
   }
 }
 
 void DominionState::DoApplyAddDiscardPileToDrawPile(Action action_id){
-  for(PlayerState& player : players_){
-    if(player.GetAddDiscardPileToDrawPile()){
-      const Card* card = GetCard(action_id);
-      player.RemoveFromDiscardPile(card);
-      player.AddToDrawPile(card);
-      bool discard_pile_empty = player.GetDiscardPile().empty();
-      player.SetAddDiscardPileToDrawPile(!discard_pile_empty);
-      if(discard_pile_empty){
-          player.DrawHand(player.GetNumRequiredCards());
-      }
-      break;
-    }
+  auto player_itr = absl::c_find_if(players_,[](PlayerState player){
+    return player.GetAddDiscardPileToDrawPile();
+  });
+  const Card* card = GetCard(action_id);
+  player_itr->RemoveFromPile(card,DISCARD);
+  player_itr->AddToDrawPile(card);
+  bool discard_pile_empty = player_itr->GetDiscardPile().empty();
+  player_itr->SetAddDiscardPileToDrawPile(!discard_pile_empty);
+  if(discard_pile_empty){
+      player_itr->DrawHand(player_itr->GetNumRequiredCards());
   }
+
+//   for(PlayerState& player : players_){
+//     if(player.GetAddDiscardPileToDrawPile()){
+//       const Card* card = GetCard(action_id);
+//       player.RemoveFromDiscardPile(card);
+//       player.AddToDrawPile(card);
+//       bool discard_pile_empty = player.GetDiscardPile().empty();
+//       player.SetAddDiscardPileToDrawPile(!discard_pile_empty);
+//       if(discard_pile_empty){
+//           player.DrawHand(player.GetNumRequiredCards());
+//       }
+//       break;
+//     }
+//   }
+// }
 }
 
 void DominionState::DoApplyChanceAction(Action action_id){
@@ -535,7 +573,7 @@ std::unique_ptr<State> DominionState::Clone() const {
 }
 
 DominionGame::DominionGame(const GameParameters& params)
-    : Game(kGameType, params) {}
+    : Game(kGameType, params), kingdom_cards_(ParameterValue<std::string>("kingdom_cards")) {}
 
 }  // namespace dominion
 }  // namespace open_spiel

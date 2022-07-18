@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "open_spiel/spiel.h"
+#include "open_spiel/games/dominion_effects.h"
 
 // Simple game of Noughts and Crosses:
 // https://en.wikipedia.org/wiki/Tic-tac-toe
@@ -36,18 +37,15 @@ inline constexpr int kNumPlayers = 2;
 inline constexpr int kInitSupply = 10;
 inline constexpr int kInitCoppers = 7;
 inline constexpr int kInitEstates = 3;
-inline constexpr int kHandSize = 5;
-
 inline constexpr int kNumCards = 33;
-inline constexpr int kNumRows = 3;
-inline constexpr int kNumCols = 3;
-inline constexpr int kNumCells = kNumRows * kNumCols;
-inline constexpr int kCellStates = 1 + kNumPlayers;  // empty, 'x', and 'o'.
-
-// https://math.stackexchange.com/questions/485752/Dominion-state-space-choose-calculation/485852
-inline constexpr int kNumberStates = 5478;
+inline constexpr int kHandSize = 5;
+inline constexpr int kGardenSupply = 8;
+inline constexpr const char* kDefaultKingdomCards = "Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Workshop";
+inline constexpr int kNumberStates = 5478; //todo: calculate
 
 const enum CardType {TREASURE = 1, VICTORY = 2, ACTION = 3, ERROR = 4};
+const enum PileType { HAND = 1, DRAW = 2, DISCARD = 3, TRASH = 4};
+
 
 class Card {
   public:
@@ -67,6 +65,7 @@ class Card {
     virtual int GetAddBuys() const {};
     virtual int GetAddCards() const {};
     virtual int GetVictoryPoints() const {};    
+    virtual const std::function<int(std::list<const Card*>)> GetVictoryPointsFn() const {};
   protected:
     Action id_;
     std::string name_;
@@ -90,12 +89,16 @@ class TreasureCard : public Card {
 };
 class VictoryCard : public Card {
   public:
+    VictoryCard(int id, std::string name, int cost, int victory_points,std::function<int(std::list<const Card*>)> vp_fn) : 
+    victory_points_(victory_points), vp_fn_(vp_fn), Card(id,name,cost) {};
     VictoryCard(int id, std::string name, int cost, int victory_points) : 
     victory_points_(victory_points), Card(id,name,cost) {};
     CardType getCardType() const {return VICTORY;};
     int GetVictoryPoints() const {return victory_points_;}
+    const std::function<int(std::list<const Card*>)> GetVictoryPointsFn() const {return vp_fn_;}
   private:
     int victory_points_;
+    std::function<int(std::list<const Card*>)> vp_fn_;
 };
 class ActionCard : public Card {
   public:
@@ -113,49 +116,6 @@ class ActionCard : public Card {
     int coins_;
 };
 
-const TreasureCard COPPER(0,"Copper",0,1);
-const TreasureCard SILVER(1,"Silver",3,2);
-const TreasureCard GOLD(2,"Gold",6,2);
-
-const VictoryCard CURSE(3,"Curse",6,-1);
-const VictoryCard ESTATE(4,"Estate",2,1);
-const VictoryCard DUCHY(5,"Duchy",5,3);
-const VictoryCard PROVINCE(6,"Province",8,6);
-
-const ActionCard VILLAGE(7,"Village",3,2,0,0,1);
-const ActionCard LABORATORY(8,"Laboratory",5,1,0,0,2);
-const ActionCard FESTIVAL(9,"Festival",5,2,1,2,0);
-const ActionCard MARKET(10,"Market",5,1,1,1,1);
-const ActionCard SMITHY(11,"Smithy",4,0,0,0,3);
-const ActionCard MILITIA(12,"Militia",4,0,0,0,0);
-const VictoryCard GARDENS(13,"Gardens",4,0);
-const ActionCard CHAPEL(14,"Chapel",2,0,0,0,0);
-const ActionCard WITCH(15,"Witch",5,0,0,0,2);
-const ActionCard WORKSHOP(16,"Workshop",3,0,0,0,0);
-const ActionCard BANDIT(17,"Bandit",5,0,0,0,0);
-const ActionCard REMODEL(18,"Remodel",4,0,0,0,0);
-const ActionCard THRONE_ROOM(19,"Throne Room",4,0,0,0,0);
-const ActionCard MONEYLENDER(20,"Moneylender",4,0,0,0,0);
-const ActionCard POACHER(21,"Poacher",4,1,0,1,1);
-const ActionCard MERCHANT(22,"Merchant",3,1,0,0,1);
-const ActionCard CELLAR(23,"Cellar",2,1,0,0,0);
-const ActionCard MINE(24,"Mine",5,0,0,0,0);
-const ActionCard VASSAL(25,"Vassal",3,0,0,2,0);
-const ActionCard COUNCIL_ROOM(26,"Council Room",5,1,4,0,0);
-const ActionCard ARTISAN(27,"Artisan",6,0,0,0,0);
-const ActionCard BUREAUCRAT(28,"Bureaucrat",4);
-const ActionCard SENTRY(29,"Sentry",5,1,0,0,1);
-const ActionCard HARBINGER(30,"Harbinger",3,1,0,0,1);
-const ActionCard LIBRARY(31,"Library",5,0,0,0,0);
-const ActionCard MOAT(32,"Moat",2,0,0,0,2);
-
-inline constexpr Action END_PHASE_ACTION = 167;
-
-const std::vector<const Card*> all_cards = {&COPPER,&SILVER,&GOLD,&CURSE,&ESTATE,&DUCHY,&PROVINCE,&VILLAGE,
-&LABORATORY,&FESTIVAL,&MARKET,&SMITHY,&MILITIA,&GARDENS,&CHAPEL,&WITCH,&WORKSHOP,&BANDIT,
-&REMODEL,&THRONE_ROOM,&MONEYLENDER,&POACHER,&MERCHANT,&CELLAR,&MINE,&VASSAL,&COUNCIL_ROOM,
-&ARTISAN,&BUREAUCRAT,&SENTRY,&HARBINGER,&LIBRARY,&MOAT};
-
 class SupplyPile {
   public: 
     SupplyPile(const Card* card, int qty) : card_(card), qty_(qty) {}; 
@@ -169,7 +129,8 @@ class SupplyPile {
 };
 
 enum TurnPhase {ActionPhase, TreasurePhase, BuyPhase, EndTurn };
-static const char * TurnPhaseStrings[] = { "Action Phase", "Treasue Phase", "Buy Phase", "End Turn Phase"};
+constexpr char * TurnPhaseStrings[] = { "Action Phase", "Treasue Phase", "Buy Phase", "End Turn Phase"};
+
 class PlayerState {
   public:
     PlayerState(Player id) : id_(id) {};
@@ -201,8 +162,7 @@ class PlayerState {
     TurnPhase EndPhase();
     void EndTurn();
     void addCoins(int coins){coins_ += coins;};
-    void RemoveFromDiscardPile(const Card* card);
-    void RemoveFromDrawPile(const Card* card);
+    void RemoveFromPile(const Card* card, PileType pile);
   private:
     void AddHandInPlayCardsToDiscardPile();
     Player id_;
@@ -223,8 +183,7 @@ class PlayerState {
 // State of an in-play game.
 class DominionState : public State {
  public:
-  DominionState(std::shared_ptr<const Game> game);
-
+  DominionState(std::shared_ptr<const Game> game, std::string kingdom_cards);
   DominionState(const DominionState&) = default;
   DominionState& operator=(const DominionState&) = default;
   Player CurrentPlayer() const override;
@@ -234,7 +193,6 @@ class DominionState : public State {
   bool IsTerminal() const override;
   bool GameFinished() const;
   std::vector<double> Returns() const override;
-  // std::string InformationStateString(Player player) const override;
   std::string ObservationString(Player player) const override;
   void ObservationTensor(Player player,
                          absl::Span<float> values) const override;
@@ -246,6 +204,8 @@ class DominionState : public State {
   std::vector<PlayerState>  getPlayers()  {return players_;}
   PlayerState& GetCurrentPlayerState() {return players_.at(current_player_);};
   PlayerState& GetPlayerState(Player id) {return players_.at(id);};
+  std::vector<std::string> GetKingdomCards()const {return kingdom_cards_;} 
+  effects::EffectRunner& GetEffectRunner() {return effect_runner_;}
  private:
   std::vector<Action> LegalTreasurePhaseActions() const;
   std::vector<Action> LegalBuyPhaseActions() const;
@@ -258,11 +218,12 @@ class DominionState : public State {
   void DoApplyInitialSupplyChanceAction(Action action_id);
   void DoApplyAddDiscardPileToDrawPile(Action action_id);
   void MoveToNextPlayer();
-  Player current_player_ = 0;         // Player zero goes first
   bool EachPlayerReceivedInitSupply() const;
   bool AddDiscardPileToDrawPile() const;
-  const Card* GetCard(Action action_id) const; 
   void DoApplyChanceAction(Action action_id);
+  effects::EffectRunner effect_runner_;
+  std::vector<std::string> kingdom_cards_;
+  Player current_player_ = 0;        
   std::map<std::string,SupplyPile> supply_piles_;
   std::vector<PlayerState> players_ {PlayerState(0),PlayerState(1)};
   bool is_terminal_ = false;
@@ -274,7 +235,7 @@ class DominionGame : public Game {
   explicit DominionGame(const GameParameters& params);
   int NumDistinctActions() const override { return 0; }
   std::unique_ptr<State> NewInitialState() const override {
-    return std::unique_ptr<State>(new DominionState(shared_from_this()));
+    return std::unique_ptr<State>(new DominionState(shared_from_this(),/*kingdom_cards=*/kingdom_cards_));
   }
   int NumPlayers() const override { return kNumPlayers; }
   double MinUtility() const override { return -1; }
@@ -283,9 +244,61 @@ class DominionGame : public Game {
   std::vector<int> ObservationTensorShape() const override {
     return {0, 0, 0};
   }
-  int MaxGameLength() const override { return kNumCells; }
+  int MaxGameLength() const override { return 2000; }
+  std::string kingdom_cards_;
 };
 
+
+inline int GardensVpFn(std::list<const Card*> cards)  {
+  return std::floor(cards.size() / 10);
+}
+
+const TreasureCard COPPER(0,"Copper",0,1);
+const TreasureCard SILVER(1,"Silver",3,2);
+const TreasureCard GOLD(2,"Gold",6,2);
+
+const VictoryCard CURSE(3,"Curse",6,-1);
+const VictoryCard ESTATE(4,"Estate",2,1);
+const VictoryCard DUCHY(5,"Duchy",5,3);
+const VictoryCard PROVINCE(6,"Province",8,6);
+
+const ActionCard VILLAGE(7,"Village",3,2,0,0,1);
+const ActionCard LABORATORY(8,"Laboratory",5,1,0,0,2);
+const ActionCard FESTIVAL(9,"Festival",5,2,1,2,0);
+const ActionCard MARKET(10,"Market",5,1,1,1,1);
+const ActionCard SMITHY(11,"Smithy",4,0,0,0,3);
+const ActionCard MILITIA(12,"Militia",4,0,0,0,0);
+const VictoryCard GARDENS(13,"Gardens",4,0,GardensVpFn);
+const ActionCard CHAPEL(14,"Chapel",2,0,0,0,0);
+const ActionCard WITCH(15,"Witch",5,0,0,0,2);
+const ActionCard WORKSHOP(16,"Workshop",3,0,0,0,0);
+const ActionCard BANDIT(17,"Bandit",5,0,0,0,0);
+const ActionCard REMODEL(18,"Remodel",4,0,0,0,0);
+const ActionCard THRONE_ROOM(19,"Throne Room",4,0,0,0,0);
+const ActionCard MONEYLENDER(20,"Moneylender",4,0,0,0,0);
+const ActionCard POACHER(21,"Poacher",4,1,0,1,1);
+const ActionCard MERCHANT(22,"Merchant",3,1,0,0,1);
+const ActionCard CELLAR(23,"Cellar",2,1,0,0,0);
+const ActionCard MINE(24,"Mine",5,0,0,0,0);
+const ActionCard VASSAL(25,"Vassal",3,0,0,2,0);
+const ActionCard COUNCIL_ROOM(26,"Council Room",5,1,4,0,0);
+const ActionCard ARTISAN(27,"Artisan",6,0,0,0,0);
+const ActionCard BUREAUCRAT(28,"Bureaucrat",4);
+const ActionCard SENTRY(29,"Sentry",5,1,0,0,1);
+const ActionCard HARBINGER(30,"Harbinger",3,1,0,0,1);
+const ActionCard LIBRARY(31,"Library",5,0,0,0,0);
+const ActionCard MOAT(32,"Moat",2,0,0,0,2);
+
+inline constexpr Action END_PHASE_ACTION = 167;
+
+const std::vector<const Card*> all_cards = {&COPPER,&SILVER,&GOLD,&CURSE,&ESTATE,&DUCHY,&PROVINCE,&VILLAGE,
+&LABORATORY,&FESTIVAL,&MARKET,&SMITHY,&MILITIA,&GARDENS,&CHAPEL,&WITCH,&WORKSHOP,&BANDIT,
+&REMODEL,&THRONE_ROOM,&MONEYLENDER,&POACHER,&MERCHANT,&CELLAR,&MINE,&VASSAL,&COUNCIL_ROOM,
+&ARTISAN,&BUREAUCRAT,&SENTRY,&HARBINGER,&LIBRARY,&MOAT};
+
+const Card* GetCard(Action action_id) {
+  return all_cards.at(action_id % all_cards.size());
+}
 
 }  // namespace dominion
 }  // namespace open_spiel
