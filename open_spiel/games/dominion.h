@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "open_spiel/spiel.h"
-#include "open_spiel/games/dominion_effects.h"
 
 // Simple game of Noughts and Crosses:
 // https://en.wikipedia.org/wiki/Tic-tac-toe
@@ -43,8 +42,12 @@ inline constexpr int kGardenSupply = 8;
 inline constexpr const char* kDefaultKingdomCards = "Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Workshop";
 inline constexpr int kNumberStates = 5478; //todo: calculate
 
-const enum CardType {TREASURE = 1, VICTORY = 2, ACTION = 3, ERROR = 4};
-const enum PileType { HAND = 1, DRAW = 2, DISCARD = 3, TRASH = 4};
+const enum CardType { TREASURE = 1, VICTORY = 2, ACTION = 3, ERROR = 4 };
+const enum PileType { HAND = 1, DRAW = 2, DISCARD = 3, TRASH = 4 };
+
+class Effect;
+class EffectRunner;
+class DominionState;
 
 
 class Card {
@@ -66,6 +69,7 @@ class Card {
     virtual int GetAddCards() const {};
     virtual int GetVictoryPoints() const {};    
     virtual const std::function<int(std::list<const Card*>)> GetVictoryPointsFn() const {};
+    virtual Effect* const GetEffect() const {};
   protected:
     Action id_;
     std::string name_;
@@ -100,26 +104,32 @@ class VictoryCard : public Card {
     int victory_points_;
     std::function<int(std::list<const Card*>)> vp_fn_;
 };
+
+
 class ActionCard : public Card {
   public:
     ActionCard(int id, std::string name, int cost, int add_actions=0, int add_buys=0,int coins=0, int add_cards=0): 
-    add_actions_(add_actions), add_buys_(add_buys),add_cards_(add_cards), coins_(coins), Card(id,name,cost) {};
+    add_actions_(add_actions), add_buys_(add_buys),add_cards_(add_cards), coins_(coins), Card(id,name,cost), effect_ (nullptr) {};
+    ActionCard(int id, std::string name, int cost, int add_actions, int add_buys,int coins, int add_cards, Effect* const effect): 
+    add_actions_(add_actions), add_buys_(add_buys),add_cards_(add_cards), coins_(coins), effect_(effect), Card(id,name,cost) {};
     CardType getCardType() const {return ACTION;};
     int GetCoins() const { return coins_ ;};
     int GetAddActions() const { return add_actions_; }
     int GetAddBuys() const { return add_buys_; }
     int GetAddCards() const { return add_cards_;}
+    Effect* const GetEffect() const {return effect_;};
   private:
     int add_actions_;
     int add_buys_;
     int add_cards_;
     int coins_;
+    Effect* const effect_;
 };
 
 class SupplyPile {
   public: 
     SupplyPile(const Card* card, int qty) : card_(card), qty_(qty) {}; 
-    bool isEmpty()const {return qty_ == 0;}
+    bool Empty()const {return qty_ == 0;}
     int getQty(){return qty_;}
     const Card* getCard() {return card_; }
     void RemoveCardFromSupplyPile() {qty_ -= 1;}
@@ -157,7 +167,7 @@ class PlayerState {
     bool HasActionCardsInHand() const;
     void PlayTreasureCard(const Card* card);
     void BuyCard(const Card* card);
-    void PlayActionCard(const Card* card);
+    void PlayActionCard(DominionState& state, const Card* card);
     void SetTurnPhase(TurnPhase phase){turn_phase_ = phase;}
     TurnPhase EndPhase();
     void EndTurn();
@@ -178,7 +188,6 @@ class PlayerState {
     int num_required_cards_ = 0;
     TurnPhase turn_phase_ = TreasurePhase;
 };
-
 
 // State of an in-play game.
 class DominionState : public State {
@@ -203,9 +212,9 @@ class DominionState : public State {
   std::map<std::string,SupplyPile> getSupplyPiles()const {return supply_piles_;}
   std::vector<PlayerState>  getPlayers()  {return players_;}
   PlayerState& GetCurrentPlayerState() {return players_.at(current_player_);};
-  PlayerState& GetPlayerState(Player id) {return players_.at(id);};
-  std::vector<std::string> GetKingdomCards()const {return kingdom_cards_;} 
-  effects::EffectRunner& GetEffectRunner() {return effect_runner_;}
+  const PlayerState& GetPlayerState(Player id) const {return players_.at(id);};
+  std::vector<std::string> GetKingdomCards()const {return kingdom_cards_;};
+  EffectRunner* const GetEffectRunner() const {return effect_runner_;}
  private:
   std::vector<Action> LegalTreasurePhaseActions() const;
   std::vector<Action> LegalBuyPhaseActions() const;
@@ -221,12 +230,108 @@ class DominionState : public State {
   bool EachPlayerReceivedInitSupply() const;
   bool AddDiscardPileToDrawPile() const;
   void DoApplyChanceAction(Action action_id);
-  effects::EffectRunner effect_runner_;
+  Player CurrentEffectPlayer() const;
+
+
   std::vector<std::string> kingdom_cards_;
   Player current_player_ = 0;        
   std::map<std::string,SupplyPile> supply_piles_;
   std::vector<PlayerState> players_ {PlayerState(0),PlayerState(1)};
+  std::array<Effect*,kNumPlayers> effects_ = {nullptr,nullptr};
   bool is_terminal_ = false;
+  EffectRunner* const effect_runner_;
+};
+
+class Effect{
+  public:
+    Effect(int id, std::string prompt) : id_(id), prompt_(prompt) {};
+    virtual void Run(DominionState& state, PlayerState& PlayerState) {};
+    virtual std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const {};
+    virtual void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState) {};
+    virtual std::string ActionToString(Action action, const DominionState& state, const PlayerState& PlayerState) const {return "";};
+    virtual std::string ToString() const {return prompt_;}
+    int GetId() const {return id_;}
+    std::string GetPrompt() const { return prompt_;}
+  protected:
+    int id_;
+    std::string prompt_;
+};
+
+struct CardEffect{
+  Effect* effect_;
+};
+
+
+class EffectRunner {
+  public:
+    EffectRunner(){
+      CardEffect no_effect;
+      no_effect.effect_ = nullptr;
+      for(int i = 0; i < kNumPlayers; i++){
+        effects_[i] = no_effect;
+      }
+    };
+    Player CurrentPlayer() const {
+      for(int i = 0; i < kNumPlayers; i++){
+        if(effects_[i].effect_ != nullptr){
+          return i;
+        }
+      }
+      return -1;
+    }
+    Effect* GetEffect(Player player) const {
+      return effects_[player].effect_;
+    }
+    bool Active() const {
+      for(CardEffect cardEffect : effects_){
+        if(cardEffect.effect_ != nullptr){
+          return true;
+        }
+      }
+      return false;
+    }
+    Effect* const CurrentEffect() const {
+      for(CardEffect cardEffect : effects_){
+        if(cardEffect.effect_ != nullptr){
+          return cardEffect.effect_;
+        }
+      }
+      return nullptr;
+    }
+    void AddEffect(Effect* const effect, Player player){
+      CardEffect card_effect;
+      card_effect.effect_ = effect;
+      effects_.at(player) = card_effect;
+    }
+    void RemoveEffect(Effect* const effect, Player player){
+      CardEffect card_effect;
+      card_effect.effect_ = nullptr;
+      effects_[player] = card_effect;
+    }
+    int Target() const {return target_;};
+    void PrintEffects() const {
+      for(const CardEffect effect : effects_){
+        if(effect.effect_){
+          std::cout << "0";
+        }else{
+          std::cout << "1";
+        }
+      }
+    }
+  private:
+    Player target_ = 1;
+    std::array<CardEffect,kNumPlayers> effects_ ;
+};
+
+
+
+class CellarEffect : public Effect {
+  /* Discard any number of cards, then draw that many */
+  public:
+    CellarEffect(int id, std::string prompt) : Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
 };
 
 // Game object.
@@ -253,6 +358,9 @@ inline int GardensVpFn(std::list<const Card*> cards)  {
   return std::floor(cards.size() / 10);
 }
 
+
+inline CellarEffect CELLAR_EFFECT(11,"Discard any number of cards, then draw that many.");
+
 const TreasureCard COPPER(0,"Copper",0,1);
 const TreasureCard SILVER(1,"Silver",3,2);
 const TreasureCard GOLD(2,"Gold",6,2);
@@ -278,7 +386,7 @@ const ActionCard THRONE_ROOM(19,"Throne Room",4,0,0,0,0);
 const ActionCard MONEYLENDER(20,"Moneylender",4,0,0,0,0);
 const ActionCard POACHER(21,"Poacher",4,1,0,1,1);
 const ActionCard MERCHANT(22,"Merchant",3,1,0,0,1);
-const ActionCard CELLAR(23,"Cellar",2,1,0,0,0);
+const ActionCard CELLAR(23,"Cellar",2,1,0,0,0,&CELLAR_EFFECT);
 const ActionCard MINE(24,"Mine",5,0,0,0,0);
 const ActionCard VASSAL(25,"Vassal",3,0,0,2,0);
 const ActionCard COUNCIL_ROOM(26,"Council Room",5,1,4,0,0);
@@ -296,7 +404,7 @@ const std::vector<const Card*> all_cards = {&COPPER,&SILVER,&GOLD,&CURSE,&ESTATE
 &REMODEL,&THRONE_ROOM,&MONEYLENDER,&POACHER,&MERCHANT,&CELLAR,&MINE,&VASSAL,&COUNCIL_ROOM,
 &ARTISAN,&BUREAUCRAT,&SENTRY,&HARBINGER,&LIBRARY,&MOAT};
 
-const Card* GetCard(Action action_id) {
+inline const Card* GetCard(Action action_id) {
   return all_cards.at(action_id % all_cards.size());
 }
 

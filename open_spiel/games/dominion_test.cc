@@ -76,7 +76,7 @@ void PlayTreasureCard() {
   for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
     state.DoApplyAction(action);
   }
-  SPIEL_CHECK_EQ(state.getPlayers().at(0).GetCoins(),2);  
+  SPIEL_DCHECK_EQ(state.getPlayers().at(0).GetCoins(),2);  
   SPIEL_CHECK_EQ(state.getPlayers().at(0).GetTurnPhase(),BuyPhase);  
 }
 
@@ -178,18 +178,20 @@ void TestEndTurnAddCardsFromDisacrdToDrawPile(){
   state.ApplyAction(END_PHASE_ACTION);
   state.ApplyAction(END_PHASE_ACTION);
 
-  SPIEL_CHECK_TRUE(state.GetPlayerState(0).GetDrawPile().empty());
-  SPIEL_CHECK_TRUE(state.GetPlayerState(0).GetHand().empty());
-  SPIEL_CHECK_TRUE(state.GetPlayerState(0).GetAddDiscardPileToDrawPile());
-  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetDiscardPile().size(),10);
+  SPIEL_DCHECK_TRUE(state.GetPlayerState(0).GetDrawPile().empty());
+  SPIEL_DCHECK_TRUE(state.GetPlayerState(0).GetHand().empty());
+  SPIEL_DCHECK_TRUE(state.GetPlayerState(0).GetAddDiscardPileToDrawPile());
+  SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetDiscardPile().size(),10);
+  SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetDrawPile().size(),0);
+
   while(state.IsChanceNode()){
-    Action outcome =
-        SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
-    state.DoApplyAction(outcome);
+  Action outcome =
+      SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+  state.DoApplyAction(outcome);
   }
-  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetDiscardPile().size(),0);
-  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetDrawPile().size(),5);
-  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),5);
+  SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetDiscardPile().size(),0);
+  SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetDrawPile().size(),5);
+  SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetHand().size(),5);
 
 }
 
@@ -454,6 +456,39 @@ void TestWorkshop(){
     // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
 } 
 
+void TestCellar(){
+   //Discard any number of cards, then draw that many.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome =
+        SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&CELLAR);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(CELLAR.GetPlay());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+
+  std::set<Action> moves;
+  for(const Card* card: state.GetCurrentPlayerState().GetHand()){
+    moves.insert(card->GetDiscard());
+  }
+  moves.insert(END_PHASE_ACTION);
+  std::vector<Action> legal_actions(moves.begin(),moves.end());
+  absl::c_sort(legal_actions);
+  SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
+
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_DCHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),kHandSize-1);
+
+}
 
 }//namespace action_card_tests
 }  // namespace dominion
@@ -469,15 +504,15 @@ int main(int argc, char** argv) {
   open_spiel::dominion::SkipBuyPhase();
   open_spiel::dominion::TestBuyAction();
   open_spiel::dominion::TestEndTurnAddCardsFromDisacrdToDrawPile();
-  open_spiel::dominion::action_card_tests::PlayVillage();
+  // open_spiel::dominion::action_card_tests::PlayVillage();
   open_spiel::dominion::action_card_tests::TestLaboratory();
   open_spiel::dominion::action_card_tests::TestFestival();
   open_spiel::dominion::action_card_tests::TestMarket();
   open_spiel::dominion::action_card_tests::TestSmithy();
   open_spiel::dominion::action_card_tests::TestMilitia();
   open_spiel::dominion::action_card_tests::TestGardens();
-  open_spiel::dominion::action_card_tests::TestChapel();
-  open_spiel::dominion::action_card_tests::TestWitch();
-  open_spiel::dominion::action_card_tests::TestWorkshop();
+  open_spiel::dominion::action_card_tests::TestCellar();
+  // open_spiel::dominion::action_card_tests::TestWitch();
+  // open_spiel::dominion::action_card_tests::TestWorkshop();
 
 }

@@ -69,8 +69,6 @@ const char* GetTurnPhaseStrings(int enumVal){
   return TurnPhaseStrings[enumVal];
 }
 
-
-
 Card::Card(int id, std::string name, int cost)
 {
   id_ = id;
@@ -110,12 +108,11 @@ void PlayerState::PlayTreasureCard(const Card* card){
   hand_.erase(it);
 }
 
-void PlayerState::PlayActionCard(const Card* card){
+void PlayerState::PlayActionCard(DominionState& state, const Card* card){
   cards_in_play_.push_back(card);
   auto it = absl::c_find_if(hand_,[card](const Card* c){
     return card->GetId() == c->GetId(); 
   });
-  if(it == hand_.end()) std::cout << "error";
   hand_.erase(it);
   actions_ -= 1;
   actions_ += card->GetAddActions();
@@ -123,6 +120,9 @@ void PlayerState::PlayActionCard(const Card* card){
   coins_ += card->GetCoins();
   if(card->GetAddCards() != 0){
     DrawHand(card->GetAddCards());
+  }
+  if(!(card->GetEffect() == nullptr)){
+    card->GetEffect()->Run(state,*this);
   }
 }
 
@@ -144,26 +144,12 @@ void PlayerState::BuyCard(const Card* card){
 
 void PlayerState::AddToDrawPile(const Card* card){
   draw_pile_.push_back(card);
+
 }
 void PlayerState::RemoveFromPile(const Card* card, PileType pile){
-  std::list<const Card*> cards_;
-  switch (pile)
-  {
-  case HAND:
-    cards_ = hand_;
-    break;
-    
-  case DRAW:
-    cards_ = draw_pile_;
-    break;
-  case DISCARD:
-    cards_ = draw_pile_;
-    break;
-  case TRASH:
-    cards_ = trash_pile_;
-  default:
-    cards_ = draw_pile_;
-  }
+  std::list<const Card*>& cards_ = pile == DISCARD ? 
+    discard_pile_ :  pile == DRAW ? draw_pile_ :
+    pile == HAND ? hand_ : trash_pile_;
   auto it = absl::c_find(cards_,card);
   if(it != cards_.end()){
     cards_.erase(it);
@@ -287,6 +273,12 @@ void DominionState::DoApplyAction(Action action_id) {
   }else{
     std::vector<Action> legal_actions = LegalActions();
     SPIEL_CHECK_EQ(absl::c_count(legal_actions,action_id),1);
+
+    if(effect_runner_->Active()){
+      Player player = effect_runner_->CurrentPlayer();
+      effect_runner_->GetEffect(player)->DoApplyAction(action_id,*this,players_.at(player));
+    }
+
     if(action_id == END_PHASE_ACTION){
       DoApplyEndPhaseAction();
     }else{
@@ -300,7 +292,7 @@ void DominionState::DoApplyAction(Action action_id) {
         DoApplyBuyCard(card);
         break;
       case ActionPhase:
-        players_[current_player_].PlayActionCard(card);
+        players_[current_player_].PlayActionCard(*this,card);
         break;
       default:
         break;
@@ -372,7 +364,7 @@ std::vector<std::pair<Action, double>> DominionState::ChanceOutcomes() const {
   int coins = players_.at(current_player_).GetCoins();
   std::unordered_set<Action> moves;
   absl::c_for_each(supply_piles_,[&moves,coins](std::pair<std::string,SupplyPile> pile){
-    if(!pile.second.isEmpty() && pile.second.getCard()->GetCost() <= coins){
+    if(!pile.second.Empty() && pile.second.getCard()->GetCost() <= coins){
       moves.insert(pile.second.getCard()->GetBuy());
     }
   });
@@ -396,9 +388,21 @@ std::vector<std::pair<Action, double>> DominionState::ChanceOutcomes() const {
   return legal_actions;
  }
 
+Player DominionState::CurrentEffectPlayer() const{
+  for(int i = 0; i < kNumPlayers; i++){
+    if(effects_[i] != nullptr){
+      return i;
+    }
+  }
+}
+
 std::vector<Action> DominionState::LegalActions() const {
   // if (IsTerminal()) return {};
   SPIEL_CHECK_GE(current_player_,0);
+  if(effect_runner_->Active()){
+    Player player = effect_runner_->CurrentPlayer();
+    return effect_runner_->GetEffect(player)->LegalActions(*this,players_.at(player));
+  }
   switch (players_.at(current_player_).GetTurnPhase()){
   case TreasurePhase:
     return LegalTreasurePhaseActions();
@@ -444,7 +448,7 @@ std::vector<std::string> splitString(std::string str, char splitter){
 }
 
 DominionState::DominionState(std::shared_ptr<const Game> game, std::string kingdom_cards) : 
-kingdom_cards_(splitString(kingdom_cards,';')), State(game) {
+kingdom_cards_(splitString(kingdom_cards,';')), effect_runner_(new EffectRunner()) ,State(game) {
   std::map<std::string,SupplyPile> victory_piles = createVictoryPiles();
   std::map<std::string,SupplyPile> treasure_piles = createTreasurePiles();
   if(kingdom_cards.length() != 0){
@@ -463,9 +467,9 @@ std::string DominionState::ToString() const {
 bool DominionState::GameFinished() const {
   SupplyPile provincePile = supply_piles_.find("province")->second;
   int num_empty_piles = absl::c_count_if(supply_piles_,[](std::pair<std::string,SupplyPile> pair){
-    return pair.second.isEmpty();
+    return pair.second.Empty();
   });
-  return provincePile.isEmpty() || num_empty_piles == 3;
+  return provincePile.Empty() || num_empty_piles == 3;
 }
 
 bool DominionState::IsTerminal() const {
@@ -502,21 +506,6 @@ void DominionState::DoApplyAddDiscardPileToDrawPile(Action action_id){
   if(discard_pile_empty){
       player_itr->DrawHand(player_itr->GetNumRequiredCards());
   }
-
-//   for(PlayerState& player : players_){
-//     if(player.GetAddDiscardPileToDrawPile()){
-//       const Card* card = GetCard(action_id);
-//       player.RemoveFromDiscardPile(card);
-//       player.AddToDrawPile(card);
-//       bool discard_pile_empty = player.GetDiscardPile().empty();
-//       player.SetAddDiscardPileToDrawPile(!discard_pile_empty);
-//       if(discard_pile_empty){
-//           player.DrawHand(player.GetNumRequiredCards());
-//       }
-//       break;
-//     }
-//   }
-// }
 }
 
 void DominionState::DoApplyChanceAction(Action action_id){

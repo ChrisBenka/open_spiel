@@ -33,50 +33,39 @@
 #include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_format.h"
 
+
 namespace open_spiel {
 namespace dominion {
 
 using namespace dominion;
 
-bool EffectRunner::Active() const {
- return absl::c_find(effects_,[](const Effect* effect){
-  effect != nullptr;
- });
-}
-Player EffectRunner::CurrentPlayer() const {
- auto effect_itr =  absl::c_find(effects_,[](const Effect* effect){
-  effect != nullptr;
- });
- effect_itr - effects_.begin();
+
+void CellarEffect::Run(DominionState& state, PlayerState& PlayerState){
+	state.GetEffectRunner()->AddEffect(this,PlayerState.GetId());
 }
 
-void CellarEffect::Run(std::shared_ptr<DominionState> state, PlayerState& PlayerState){
-	state->GetEffectRunner().AddEffect(this,PlayerState.GetId());
-}
-
-std::vector<Action> CellarEffect::LegalActions(std::shared_ptr<DominionState> state, PlayerState& PlayerState) const {
-	std::vector<Action> moves;
+std::vector<Action> CellarEffect::LegalActions(const DominionState& state, const PlayerState& PlayerState) const {
+	std::set<Action> moves;
 	for(const Card* card : PlayerState.GetHand()){
-		moves.push_back(card->GetDiscard());
+		moves.insert(card->GetDiscard());
 	}
-	absl::c_sort(moves);
-	return moves;
-};
+	moves.insert(END_PHASE_ACTION);
+	std::vector<Action> legal_actions(moves.begin(),moves.end());
+	absl::c_sort(legal_actions);
+	return legal_actions;
+}
 
-void CellarEffect::DoApplyAction(Action action,std::shared_ptr<DominionState> state, PlayerState& PlayerState) {
+void CellarEffect::DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState) {
 	if(action == END_PHASE_ACTION){
-		state->GetEffectRunner().RemoveEffect(PlayerState.GetId());
-		PlayerState.DrawHand(num_cards_discarded_);
+				std::cout << "hit";
+		const int num_cards_discarded = (kHandSize-1) - PlayerState.GetHand().size();
+		PlayerState.DrawHand(num_cards_discarded);
 	}else{
 		const Card* card = GetCard(action);
 		PlayerState.RemoveFromPile(card,HAND);
 		PlayerState.AddToDrawPile(card);
-		num_cards_discarded_ += 1;
 	}
-};
-
-
-
+}
 
 }  // namespace dominion
 }  // namespace open_spiel
