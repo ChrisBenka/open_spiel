@@ -101,19 +101,21 @@ void PlayerState::DrawHand(int num_cards){
   }
 }
 
+bool PlayerState::HasCardInHand(const Card* card) const {
+  return absl::c_find_if(hand_,[card](const Card* c){
+    return c->GetId() == card->GetId();
+  }) != hand_.end();
+}
+
 void PlayerState::PlayTreasureCard(const Card* card){
   addCoins(card->GetCoins());
   cards_in_play_.push_back(card);
-  auto it = absl::c_find(hand_,card);
-  hand_.erase(it);
+  RemoveFromPile(card,HAND);
 }
 
 void PlayerState::PlayActionCard(DominionState& state, const Card* card){
   cards_in_play_.push_back(card);
-  auto it = absl::c_find_if(hand_,[card](const Card* c){
-    return card->GetId() == c->GetId(); 
-  });
-  hand_.erase(it);
+  RemoveFromPile(card,HAND);
   actions_ -= 1;
   actions_ += card->GetAddActions();
   buys_ += card->GetAddBuys();
@@ -142,18 +144,21 @@ void PlayerState::BuyCard(const Card* card){
   buys_ -= 1;
 }
 
-void PlayerState::AddToDrawPile(const Card* card){
-  draw_pile_.push_back(card);
-
-}
 void PlayerState::RemoveFromPile(const Card* card, PileType pile){
   std::list<const Card*>& cards_ = pile == DISCARD ? 
     discard_pile_ :  pile == DRAW ? draw_pile_ :
     pile == HAND ? hand_ : trash_pile_;
-  auto it = absl::c_find(cards_,card);
-  if(it != cards_.end()){
-    cards_.erase(it);
-  }
+  auto it = absl::c_find_if(cards_,[card](const Card* c){
+    return card->GetId() == c->GetId(); 
+  });
+  cards_.erase(it);
+}
+
+void PlayerState::AddToPile(const Card* card, PileType pile){
+  std::list<const Card*>& cards_ = pile == DISCARD ? 
+    discard_pile_ :  pile == DRAW ? draw_pile_ :
+    pile == HAND ? hand_ : trash_pile_;
+    cards_.push_back(card);
 }
 
 std::list<const Card*> PlayerState::GetAllCards() const {
@@ -277,8 +282,8 @@ void DominionState::DoApplyAction(Action action_id) {
     if(effect_runner_->Active()){
       Player player = effect_runner_->CurrentPlayer();
       effect_runner_->GetEffect(player)->DoApplyAction(action_id,*this,players_.at(player));
+      return;
     }
-
     if(action_id == END_PHASE_ACTION){
       DoApplyEndPhaseAction();
     }else{
@@ -309,10 +314,14 @@ std::vector<std::pair<Action, double>> DominionState::GetInitSupplyChanceOutcome
   const double total = kInitSupply - (num_coppers + num_estates);
   const double copper_p = (kInitCoppers - num_coppers) / total;
   const double estate_p = (kInitEstates - num_estates) / total;
-  return std::vector<std::pair<Action,double>>{
-    std::pair<Action,double>{COPPER.GetId(),copper_p},
-    std::pair<Action,double>{ESTATE.GetId(),estate_p},
-  };
+  std::vector<std::pair<Action,double>> outcomes_;
+  if(copper_p > 0){
+    outcomes_.push_back(std::pair<Action,double>{COPPER.GetId(),copper_p});
+  }
+  if(estate_p > 0){
+    outcomes_.push_back(std::pair<Action,double>{ESTATE.GetId(),estate_p});
+  }
+  return outcomes_;
 }
 
 std::vector<std::pair<Action, double>> DominionState::GetAddDiscardPileToDrawPileChanceOutcomes() const { 
@@ -431,7 +440,6 @@ std::string DominionState::ActionToString(Player player,
 std::vector<std::string> splitString(std::string str, char splitter){
     std::vector<std::string> result;
     std::string current = ""; 
-
     for(int i = 0; i < str.size(); i++){
         if(str[i] == splitter){
             if(current != ""){
@@ -478,7 +486,7 @@ bool DominionState::IsTerminal() const {
 
 void DominionState::DoApplyInitialSupplyChanceAction(Action action_id){
   const Card* card = GetCard(action_id);
-  players_.at(current_player_).AddToDrawPile(card);
+  players_.at(current_player_).AddToPile(card,DRAW);
   if(EachPlayerReceivedInitSupply()){
     current_player_ = 0;
     absl::c_for_each(players_,[](PlayerState& player){
@@ -500,7 +508,7 @@ void DominionState::DoApplyAddDiscardPileToDrawPile(Action action_id){
   });
   const Card* card = GetCard(action_id);
   player_itr->RemoveFromPile(card,DISCARD);
-  player_itr->AddToDrawPile(card);
+  player_itr->AddToPile(card,DRAW);
   bool discard_pile_empty = player_itr->GetDiscardPile().empty();
   player_itr->SetAddDiscardPileToDrawPile(!discard_pile_empty);
   if(discard_pile_empty){
@@ -534,6 +542,8 @@ Player DominionState::CurrentPlayer() const {
     return kChancePlayerId;
   }else if(AddDiscardPileToDrawPile()){
     return kChancePlayerId;
+  }else if(effect_runner_->Active()){
+    return effect_runner_->CurrentPlayer();
   }
   return current_player_;
 }

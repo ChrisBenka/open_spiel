@@ -37,8 +37,10 @@ void InitialPlayerState(){
   std::shared_ptr<const Game> game = LoadGame("dominion",params);
   DominionState state(game,kDefaultKingdomCards);
   while(state.IsChanceNode()){
-    Action outcome =
-        SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+       Action outcome =
+          SampleAction(state.ChanceOutcomes(),
+                       std::uniform_real_distribution<double>(0.0, 1.0)(rng))
+              .first;
     state.DoApplyAction(outcome);
   }
   const int num_coppers_p0 = absl::c_count_if(state.GetPlayerState(0).GetAllCards(),IsCopper);
@@ -135,7 +137,7 @@ void BuyVictoryCard() {
   SPIEL_CHECK_EQ(num_duchy,1);
   SPIEL_CHECK_EQ(currentPlayerState.GetBuys(),0);
   SPIEL_CHECK_EQ(currentPlayerState.GetCoins(),0);
-  SPIEL_CHECK_EQ(currentPlayerState.GetVictoryPoints(),3);
+  SPIEL_CHECK_EQ(currentPlayerState.GetVictoryPoints(),6);
   state.DoApplyAction(END_PHASE_ACTION);
   SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
 
@@ -167,7 +169,7 @@ void TestEndTurnAddCardsFromDisacrdToDrawPile(){
   std::shared_ptr<const Game> game = LoadGame("dominion");
   DominionState state(game,kDefaultKingdomCards);
   while(state.IsChanceNode()){
-    Action outcome = SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+    Action outcome = state.ChanceOutcomes().front().first;
     state.DoApplyAction(outcome);
   }
     
@@ -185,8 +187,7 @@ void TestEndTurnAddCardsFromDisacrdToDrawPile(){
   SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetDrawPile().size(),0);
 
   while(state.IsChanceNode()){
-  Action outcome =
-      SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+  Action outcome = state.ChanceOutcomes().front().first;
   state.DoApplyAction(outcome);
   }
   SPIEL_DCHECK_EQ(state.GetPlayerState(0).GetDiscardPile().size(),0);
@@ -232,10 +233,16 @@ namespace action_card_tests {
     std::shared_ptr<const Game> game = LoadGame("dominion");
     DominionState state(game,kDefaultKingdomCards);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
-      state.DoApplyAction(outcome);
+    std::vector<std::pair<Action, double>> outcomes = state.ChanceOutcomes();
+    bool has_copper = absl::c_find_if(outcomes,[](std::pair<Action,double> outcome){
+      return outcome.first == COPPER.GetId();
+    }) != outcomes.end();
+    if(has_copper){
+      state.DoApplyAction(COPPER.GetId());
+    }else{
+      state.DoApplyAction(ESTATE.GetId());
     }
+  }
     state.DoApplyAction(END_PHASE_ACTION);
     state.GetCurrentPlayerState().AddFrontToDrawPile(&VILLAGE);
     state.DoApplyAction(END_PHASE_ACTION);
@@ -254,8 +261,7 @@ namespace action_card_tests {
     std::shared_ptr<const Game> game = LoadGame("dominion");
     DominionState state(game,kDefaultKingdomCards);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
     }
     state.DoApplyAction(END_PHASE_ACTION);
@@ -269,8 +275,7 @@ namespace action_card_tests {
     state.DoApplyAction(LABORATORY.GetPlay());
     SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetDrawPile().size(),1);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
     }
     SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetActions(),1);
@@ -282,8 +287,7 @@ namespace action_card_tests {
     std::shared_ptr<const Game> game = LoadGame("dominion");
     DominionState state(game,kDefaultKingdomCards);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
     }
     state.DoApplyAction(END_PHASE_ACTION);
@@ -306,8 +310,7 @@ namespace action_card_tests {
     std::shared_ptr<const Game> game = LoadGame("dominion");
     DominionState state(game,kDefaultKingdomCards);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
     }
     state.DoApplyAction(END_PHASE_ACTION);
@@ -331,8 +334,7 @@ namespace action_card_tests {
     std::shared_ptr<const Game> game = LoadGame("dominion");
     DominionState state(game,kDefaultKingdomCards);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
     }
     state.DoApplyAction(END_PHASE_ACTION);
@@ -345,41 +347,188 @@ namespace action_card_tests {
     SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
     state.DoApplyAction(SMITHY.GetPlay());
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
   }
   SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),7);
 } 
-void TestMilitia(){
-    // // Adds 2 coins, each other player discards down to 3 cards in hand.
-    // std::mt19937 rng;
-    // std::shared_ptr<const Game> game = LoadGame("dominion");
-    // DominionState state(game,kDefaultKingdomCards);
-    // while(state.IsChanceNode()){
-    //   Action outcome =
-    //       SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
-    //   state.DoApplyAction(outcome);
-    // }
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
-    // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
-    // state.DoApplyAction(MILITIA.GetPlay());
-    // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
+void TestMilitiaOpponentHasNoMoat(){
+  // add 2 coins each other players discards down to 3 cards
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(MILITIA.GetPlay());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  while(state.GetEffectRunner()->Active()){
+    state.DoApplyAction(state.LegalActions().front());
+  }
+  SPIEL_CHECK_EQ(state.GetPlayerState(1).GetHand().size(),3);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
 } 
+void TestMilitiaOpponentRevealsMoat(){
+  // add 2 coins each other players discards down to 3 cards
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Moat");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MOAT);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(MILITIA.GetPlay());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> moves = {MOAT.GetPlay(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(MOAT.GetPlay());
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+} 
+void TestMilitiaOpponentChoosesNotToRevealMoat(){
+  // add 2 coins each other players discards down to 3 cards
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Moat");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MOAT);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  state.DoApplyAction(MILITIA.GetPlay());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> moves = {MOAT.GetPlay(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  while(state.GetEffectRunner()->Active()){
+    state.DoApplyAction(state.LegalActions().front());
+  }
+  SPIEL_CHECK_EQ(state.GetPlayerState(1).GetHand().size(),3);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+} 
+void TestWitchOpponentHasNoMoat(){
+  // Opponents gain a curse card. Player gains 2 cards to hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Moat");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&WITCH);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  state.DoApplyAction(WITCH.GetPlay());
+
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),6);
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(absl::c_count(state.GetPlayerState(1).GetAllCards(),&CURSE),1);
+  SPIEL_CHECK_EQ(state.GetPlayerState(1).GetVictoryPoints(),2);
+} 
+
+void TestWitchOpponentRevealsMoat(){
+   // Opponents is immune, does not gain a curse card. Player gains 2 cards to hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Moat");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&WITCH);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MOAT);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  state.DoApplyAction(WITCH.GetPlay());
+
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),6);
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.DoApplyAction(MOAT.GetPlay());
+  SPIEL_CHECK_EQ(absl::c_count(state.GetPlayerState(1).GetAllCards(),&CURSE),0);
+} 
+
+void TestWitchOpponentChoosesNotToRevealMoat(){
+    // Opponents is immune, does not gain a curse card. Player gains 2 cards to hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Moat");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&WITCH);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MOAT);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  state.DoApplyAction(WITCH.GetPlay());
+
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),6);
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(absl::c_count(state.GetPlayerState(1).GetAllCards(),&CURSE),1);
+  SPIEL_CHECK_EQ(state.GetPlayerState(1).GetVictoryPoints(),2);
+} 
+
 void TestGardens(){
     // Worth 1 victory point per 10 cards you have (round down)
     std::mt19937 rng;
     std::shared_ptr<const Game> game = LoadGame("dominion");
     DominionState state(game,kDefaultKingdomCards);
     while(state.IsChanceNode()){
-      Action outcome =
-          SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+      Action outcome = state.ChanceOutcomes().front().first;
       state.DoApplyAction(outcome);
     }
     state.DoApplyAction(END_PHASE_ACTION);
@@ -390,70 +539,89 @@ void TestGardens(){
     state.DoApplyAction(END_PHASE_ACTION);
     SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
     SPIEL_DCHECK_EQ(state.GetCurrentPlayerState().GetVictoryPoints(),4);
-
 } 
-// void TestChapel(){
-//   // trash up to four cards in your hand.
-//   std::mt19937 rng;
-//   std::shared_ptr<const Game> game = LoadGame("dominion");
-//   DominionState state(game,kDefaultKingdomCards);
-//   while(state.IsChanceNode()){
-//     Action outcome =
-//         SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
-//     state.DoApplyAction(outcome);
-//   }
-//   state.DoApplyAction(END_PHASE_ACTION);
-//   state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
-//   state.DoApplyAction(END_PHASE_ACTION);
-//   SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
-//   state.DoApplyAction(END_PHASE_ACTION);
-//   state.DoApplyAction(END_PHASE_ACTION);
-//   SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
-//   SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
-//   state.DoApplyAction(MILITIA.GetPlay());
-//   SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
-// } 
-void TestWitch(){
-    // Adds 2 coins, each other player discards down to 3 cards in hand.
-    // std::mt19937 rng;
-    // std::shared_ptr<const Game> game = LoadGame("dominion");
-    // DominionState state(game,kDefaultKingdomCards);
-    // while(state.IsChanceNode()){
-    //   Action outcome =
-    //       SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
-    //   state.DoApplyAction(outcome);
-    // }
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
-    // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
-    // state.DoApplyAction(MILITIA.GetPlay());
-    // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
+void TestChapel(){
+  // trash up to four cards in your hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,kDefaultKingdomCards);
+  while(state.IsChanceNode()){
+       Action outcome =
+          SampleAction(state.ChanceOutcomes(),
+                       std::uniform_real_distribution<double>(0.0, 1.0)(rng))
+              .first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&CHAPEL);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+  state.DoApplyAction(CHAPEL.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.DoApplyAction(COPPER.GetTrash());
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetTrashPile().size(),1);  
 } 
+void TestChapelTrashFourCards(){
+  // trash up to four cards in your hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,kDefaultKingdomCards);
+  while(state.IsChanceNode()){
+       Action outcome =
+          SampleAction(state.ChanceOutcomes(),
+                       std::uniform_real_distribution<double>(0.0, 1.0)(rng))
+              .first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&CHAPEL);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
+  state.DoApplyAction(CHAPEL.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  for(int i = 0; i < 4; i++){
+    Action action = state.LegalActions().front();
+    state.DoApplyAction(action);
+  }
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetTrashPile().size(),4);  
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),0);  
+}
 void TestWorkshop(){
-    // Adds 2 coins, each other player discards down to 3 cards in hand.
-    // std::mt19937 rng;
-    // std::shared_ptr<const Game> game = LoadGame("dominion");
-    // DominionState state(game,kDefaultKingdomCards);
-    // while(state.IsChanceNode()){
-    //   Action outcome =
-    //       SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
-    //   state.DoApplyAction(outcome);
-    // }
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // state.DoApplyAction(END_PHASE_ACTION);
-    // SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
-    // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetTurnPhase(),ActionPhase);
-    // state.DoApplyAction(MILITIA.GetPlay());
-    // SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
+    // Gain a card costing up to 4 coins
+    // Opponents is immune, does not gain a curse card. Player gains 2 cards to hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Workshop;Moat");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&WORKSHOP);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  state.DoApplyAction(WORKSHOP.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  state.DoApplyAction(VILLAGE.GetGain());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == VILLAGE.GetId();
+  }),1);
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
 } 
 
 void TestCellar(){
@@ -462,8 +630,7 @@ void TestCellar(){
   std::shared_ptr<const Game> game = LoadGame("dominion");
   DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Cellar");
   while(state.IsChanceNode()){
-    Action outcome =
-        SampleAction(state.ChanceOutcomes(),std::uniform_real_distribution<double>(0.0, 1.0)(rng)).first;
+    Action outcome = state.ChanceOutcomes().front().first;
     state.DoApplyAction(outcome);
   }
   state.DoApplyAction(END_PHASE_ACTION);
@@ -485,9 +652,10 @@ void TestCellar(){
   absl::c_sort(legal_actions);
   SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
 
+  state.DoApplyAction(COPPER.GetDiscard());
   state.DoApplyAction(END_PHASE_ACTION);
-  SPIEL_DCHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),kHandSize-1);
-
+  SPIEL_CHECK_FALSE(state.IsChanceNode());
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),kHandSize-1);
 }
 
 }//namespace action_card_tests
@@ -504,15 +672,20 @@ int main(int argc, char** argv) {
   open_spiel::dominion::SkipBuyPhase();
   open_spiel::dominion::TestBuyAction();
   open_spiel::dominion::TestEndTurnAddCardsFromDisacrdToDrawPile();
-  // open_spiel::dominion::action_card_tests::PlayVillage();
+  open_spiel::dominion::action_card_tests::PlayVillage();
   open_spiel::dominion::action_card_tests::TestLaboratory();
   open_spiel::dominion::action_card_tests::TestFestival();
   open_spiel::dominion::action_card_tests::TestMarket();
-  open_spiel::dominion::action_card_tests::TestSmithy();
-  open_spiel::dominion::action_card_tests::TestMilitia();
+  // open_spiel::dominion::action_card_tests::TestSmithy();
+  open_spiel::dominion::action_card_tests::TestMilitiaOpponentHasNoMoat();
+  open_spiel::dominion::action_card_tests::TestMilitiaOpponentRevealsMoat();
+  open_spiel::dominion::action_card_tests::TestMilitiaOpponentChoosesNotToRevealMoat();
   open_spiel::dominion::action_card_tests::TestGardens();
   open_spiel::dominion::action_card_tests::TestCellar();
-  // open_spiel::dominion::action_card_tests::TestWitch();
-  // open_spiel::dominion::action_card_tests::TestWorkshop();
+  open_spiel::dominion::action_card_tests::TestChapelTrashFourCards();
+  open_spiel::dominion::action_card_tests::TestWitchOpponentHasNoMoat();
+  open_spiel::dominion::action_card_tests::TestWitchOpponentRevealsMoat();
+  open_spiel::dominion::action_card_tests::TestWitchOpponentChoosesNotToRevealMoat();
+  open_spiel::dominion::action_card_tests::TestWorkshop();
 
 }

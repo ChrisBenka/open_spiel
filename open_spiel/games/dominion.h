@@ -60,6 +60,7 @@ class Card {
     Action GetDiscard() const {return discard_;}
     Action GetTrash() const{ return trash_;}
     Action GetGain() const {return gain_;}
+    Action GetReveal() const {return reveal_;}
     int GetCost() const {return cost_;};
     std::string ActionToString(Action action_id) const { return action_strs_.find(action_id)->second;};
     virtual CardType getCardType() const { return ERROR;};
@@ -150,6 +151,7 @@ class PlayerState {
     std::list<const Card*> GetDrawPile() const {return draw_pile_;};
     std::list<const Card*> GetDiscardPile() const { return discard_pile_; }
     std::list<const Card*> GetHand() const {return hand_;};
+    std::list<const Card*> GetTrashPile() const {return trash_pile_;};
     bool GetAddDiscardPileToDrawPile() const { return add_discard_pile_to_draw_pile_;}; 
     void SetAddDiscardPileToDrawPile(bool add_to_draw){add_discard_pile_to_draw_pile_ = add_to_draw;};
     int GetNumRequiredCards() const { return num_required_cards_;}
@@ -158,11 +160,10 @@ class PlayerState {
     int GetCoins() const {return coins_;}
     int GetVictoryPoints() const ;
     TurnPhase GetTurnPhase() const {return turn_phase_;}
-    void AddToHand(const Card* card) {hand_.push_back(card);}
-    void AddToDrawPile(const Card* card);
+    void AddToPile(const Card* card, PileType pile);
     void AddFrontToDrawPile(const Card* card){draw_pile_.push_front(card);};
     void DrawHand(int num_cards);
-    bool HasCardInHand(Card card) const;
+    bool HasCardInHand(const Card* card) const;
     bool HasTreasureCardInHand() const;
     bool HasActionCardsInHand() const;
     void PlayTreasureCard(const Card* card);
@@ -209,8 +210,9 @@ class DominionState : public State {
   void UndoAction(Player player, Action move) override;
   std::vector<Action> LegalActions() const override;
   void DoApplyAction(Action move) override;
-  std::map<std::string,SupplyPile> getSupplyPiles()const {return supply_piles_;}
-  std::vector<PlayerState>  getPlayers()  {return players_;}
+  std::map<std::string,SupplyPile> getSupplyPiles() const {return supply_piles_;}
+  void RemoveCardFromSupplyPile(std::string name) {supply_piles_.at(name).RemoveCardFromSupplyPile();}
+  std::vector<PlayerState>&  getPlayers()  {return players_;}
   PlayerState& GetCurrentPlayerState() {return players_.at(current_player_);};
   const PlayerState& GetPlayerState(Player id) const {return players_.at(id);};
   std::vector<std::string> GetKingdomCards()const {return kingdom_cards_;};
@@ -277,7 +279,7 @@ class EffectRunner {
           return i;
         }
       }
-      return -1;
+      return 9;
     }
     Effect* GetEffect(Player player) const {
       return effects_[player].effect_;
@@ -303,7 +305,7 @@ class EffectRunner {
       card_effect.effect_ = effect;
       effects_.at(player) = card_effect;
     }
-    void RemoveEffect(Effect* const effect, Player player){
+    void RemoveEffect(Player player){
       CardEffect card_effect;
       card_effect.effect_ = nullptr;
       effects_[player] = card_effect;
@@ -332,7 +334,92 @@ class CellarEffect : public Effect {
     void Run(DominionState& state, PlayerState& PlayerState);
     std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
     void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+  private:
+    int num_cards_discarded_ = 0;
 };
+
+class TrashCardsEffect : public Effect {
+  /* Trash up to n cards. E.g. Chapel */
+  public:
+    TrashCardsEffect(int id, std::string prompt, int num_cards) : num_cards_(num_cards), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+  private:
+    int num_cards_trashed_ = 0;
+    int num_cards_ = 0;
+};
+
+class DiscardDownToEffect : public Effect {
+  /* Discard down to some number of cards in player's hand. */
+  public:
+    DiscardDownToEffect(int id, std::string prompt, int num_cards_down_to) : num_cards_down_to_(num_cards_down_to), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+  private:
+    int num_cards_down_to_ = 0;
+};
+
+class OpponentsDiscardDownToEffect : public Effect {
+    /* Causes opponents to discard down to k num cards. Opponents have option to play moat if available. E.g. Militia. */
+  public:
+    OpponentsDiscardDownToEffect(int id, std::string prompt, int num_cards_down_to) : num_cards_down_to_(num_cards_down_to), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+  private:
+    int num_cards_down_to_ = 0;
+};
+
+class OpponentsGainCardEffect : public Effect {
+    /* Causes opponents to gain a card to discard pile. Opponents have option to play moat if available. E.g. Witch. */
+  public:
+    OpponentsGainCardEffect(int id, std::string prompt, const Card* card) : card_(card), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+  private:
+    const Card* card_;
+};
+
+class GainCardToDicardPileEffect : public Effect {
+    /* Causes opponents to gain a card to discard pile. E.g. Witch. */
+  public:
+    GainCardToDicardPileEffect(int id, std::string prompt, const Card* card) : card_(card), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+ private:
+    const Card* card_;
+};
+
+class ChoosePileToGainEffect : public Effect {
+    /* Choose a pile to gain a card from. CArd's cost must be <= n coins. E.g Workshop */
+  public:
+    ChoosePileToGainEffect(int id, std::string prompt, int n_coins) : n_coins_(n_coins), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+ private:
+    const int n_coins_;
+};
+
+class GainTreasureCardEffect : public Effect {
+  public:
+    GainTreasureCardEffect(int id, std::string prompt, const Card* card) : card_(card), Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+ private:
+    const Card* card_;
+};
+
+class BanditEffect : public Effect {
+    /*Gain a gold. Each other player reveals the top 2 cards of their deck, trashes a revealed Treasure other than Copper and discards the rest*/
+  public:
+    BanditEffect(int id, std::string prompt) : Effect(id,prompt) {};
+    void Run(DominionState& state, PlayerState& PlayerState);
+    std::vector<Action> LegalActions(const DominionState& state, const PlayerState& PlayerState) const;
+    void DoApplyAction(Action action, DominionState& state, PlayerState& PlayerState);
+};
+
 
 // Game object.
 class DominionGame : public Game {
@@ -359,7 +446,6 @@ inline int GardensVpFn(std::list<const Card*> cards)  {
 }
 
 
-inline CellarEffect CELLAR_EFFECT(11,"Discard any number of cards, then draw that many.");
 
 const TreasureCard COPPER(0,"Copper",0,1);
 const TreasureCard SILVER(1,"Silver",3,2);
@@ -370,16 +456,25 @@ const VictoryCard ESTATE(4,"Estate",2,1);
 const VictoryCard DUCHY(5,"Duchy",5,3);
 const VictoryCard PROVINCE(6,"Province",8,6);
 
+inline CellarEffect CELLAR_EFFECT(11,"Discard any number of cards, then draw that many.");
+inline TrashCardsEffect CHAPEL_EFFECT(1,"Trash up to 4 cards",4);
+inline DiscardDownToEffect MILITIA_EFFECT_DISCARD(3,"Discard down to 3 cards",3);
+inline OpponentsDiscardDownToEffect MILITIA_EFFECT(2,"Opponents discard down to 3 cards",3);
+inline GainCardToDicardPileEffect WITCH_GAIN_EFFECT(5,"Gain curse to discard pile",&CURSE);
+inline OpponentsGainCardEffect WITCH_EFFECT(4,"Opponents gain a curse card",&CURSE);
+inline ChoosePileToGainEffect WORKSHOP_EFFECT(6,"Gain a card costing up to 4 coins",4);
+
+
 const ActionCard VILLAGE(7,"Village",3,2,0,0,1);
 const ActionCard LABORATORY(8,"Laboratory",5,1,0,0,2);
 const ActionCard FESTIVAL(9,"Festival",5,2,1,2,0);
 const ActionCard MARKET(10,"Market",5,1,1,1,1);
 const ActionCard SMITHY(11,"Smithy",4,0,0,0,3);
-const ActionCard MILITIA(12,"Militia",4,0,0,0,0);
+const ActionCard MILITIA(12,"Militia",4,0,0,0,0,&MILITIA_EFFECT);
 const VictoryCard GARDENS(13,"Gardens",4,0,GardensVpFn);
-const ActionCard CHAPEL(14,"Chapel",2,0,0,0,0);
-const ActionCard WITCH(15,"Witch",5,0,0,0,2);
-const ActionCard WORKSHOP(16,"Workshop",3,0,0,0,0);
+const ActionCard CHAPEL(14,"Chapel",2,0,0,0,0,&CHAPEL_EFFECT);
+const ActionCard WITCH(15,"Witch",5,0,0,0,2,&WITCH_EFFECT);
+const ActionCard WORKSHOP(16,"Workshop",3,0,0,0,0,&WORKSHOP_EFFECT);
 const ActionCard BANDIT(17,"Bandit",5,0,0,0,0);
 const ActionCard REMODEL(18,"Remodel",4,0,0,0,0);
 const ActionCard THRONE_ROOM(19,"Throne Room",4,0,0,0,0);
