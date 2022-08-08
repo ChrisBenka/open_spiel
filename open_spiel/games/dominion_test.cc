@@ -658,6 +658,408 @@ void TestCellar(){
   SPIEL_CHECK_EQ(state.GetPlayerState(0).GetHand().size(),kHandSize-1);
 }
 
+void TestBanditNoCardsToTrash() {
+  //Player will gain a gold, opponents will discard top two cards
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Bandit;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&BANDIT);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(BANDIT.GetPlay());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == GOLD.GetId();
+  }),1);
+  SPIEL_CHECK_TRUE(state.IsChanceNode());
+  state.getPlayers().at(1).AddFrontToDrawPile(&COPPER);
+  state.getPlayers().at(1).AddFrontToDrawPile(&COPPER);
+  while(state.IsChanceNode()){
+       Action outcome =
+          SampleAction(state.ChanceOutcomes(),
+                       std::uniform_real_distribution<double>(0.0, 1.0)(rng))
+              .first;
+    state.DoApplyAction(outcome);
+  }
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> moves = {COPPER.GetDiscard()};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(COPPER.GetDiscard());
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(COPPER.GetDiscard());
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+}
+
+void TestBanditHasTwoCardsToSelectToTrash() {
+  //Player will gain a gold, opponents will trash one of top two cards and discard the other.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Bandit;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&BANDIT);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(BANDIT.GetPlay());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == GOLD.GetId();
+  }),1);
+  SPIEL_CHECK_TRUE(state.IsChanceNode());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.getPlayers().at(1).AddFrontToDrawPile(&SILVER);
+  state.getPlayers().at(1).AddFrontToDrawPile(&GOLD);
+  while(state.IsChanceNode()){
+       Action outcome =
+          SampleAction(state.ChanceOutcomes(),
+                       std::uniform_real_distribution<double>(0.0, 1.0)(rng))
+              .first;
+    state.DoApplyAction(outcome);
+  }
+  std::vector<Action> moves = {SILVER.GetTrash(),GOLD.GetTrash()};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(GOLD.GetTrash());
+  moves = {SILVER.GetDiscard()};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(SILVER.GetDiscard());
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+}
+
+void TestRemodel() {
+  //Player will gain a gold, opponents will trash one of top two cards and discard the other.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Bandit;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&SILVER);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&REMODEL);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(REMODEL.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.DoApplyAction(SILVER.GetTrash());;
+  std::vector<Action> moves;
+  for(auto pile_pair : state.getSupplyPiles()){
+    if(!pile_pair.second.Empty() && pile_pair.second.getCard()->GetCost() <= SILVER.GetCost() + 2){
+      moves.push_back(pile_pair.second.getCard()->GetGain());
+    }
+  }
+  absl::c_sort(moves);
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(VILLAGE.GetGain());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == VILLAGE.GetId();
+  }),1);
+
+}
+void TestMoneyLenderTrashCopper(){
+    //Player will gain a gold, opponents will trash one of top two cards and discard the other.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MONEYLENDER);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(MONEYLENDER.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> moves = {COPPER.GetTrash(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(COPPER.GetTrash());
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetCoins(),3);
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetTrashPile(),[](const Card* c){
+    return c->GetId() == COPPER.GetId();
+  }),1);
+}
+void TestMoneyLenderDoNotTrashCopper(){
+    //Player will gain a gold, opponents will trash one of top two cards and discard the other.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Cellar");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MONEYLENDER);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(MONEYLENDER.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> moves = {COPPER.GetTrash(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.LegalActions(),moves);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetCoins(),0);
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetTrashPile(),[](const Card* c){
+    return c->GetId() == COPPER.GetId();
+  }),0);
+}
+
+void testPoacherNoEmptyPiles(){
+  //Discard a card per empty supply pile
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Poacher");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&POACHER);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(POACHER.GetPlay());
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+}
+
+void testPoacherEmptyPiles(){
+  //Discard a card per empty supply pile
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Poacher");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&POACHER);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.getSupplyPiles().at("Militia").Clear();
+  state.getSupplyPiles().at("Gardens").Clear();
+  state.getSupplyPiles().at("Copper").Clear();
+  state.DoApplyAction(POACHER.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  for(int i = 0; i < 3; i++){
+    state.DoApplyAction(state.LegalActions().front());
+  }  
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),2);
+}
+
+void TestMineDoNotTrash(){
+  //Trash a Treasure card from your hand. Gain a Treasure card costing up to 3 coins more; put it into your hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Mine");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MINE);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(MINE.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> legal_actions = {COPPER.GetTrash(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+}
+void TestMineTrashTreasureCard(){
+  //Trash a Treasure card from your hand. Gain a Treasure card costing up to 3 coins more; put it into your hand.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Mine");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MINE);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(MINE.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  std::vector<Action> legal_actions = {COPPER.GetTrash(),END_PHASE_ACTION};
+  SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
+  state.DoApplyAction(COPPER.GetTrash());
+  legal_actions = {COPPER.GetGain(),SILVER.GetGain()};     
+  state.DoApplyAction(SILVER.GetGain());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetTrashPile(),[](const Card* c){
+    return c->GetId() == COPPER.GetId();
+  }),1);
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == SILVER.GetId();
+  }),1);
+}
+
+void TestVassalTopCardIsNotActionCard(){
+  //Discard the top card of your deck.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Vassal");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&VASSAL);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(VASSAL.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&SILVER);
+  std::vector<Action> legal_actions = {SILVER.GetDiscard()};
+  SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
+  state.DoApplyAction(SILVER.GetDiscard());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == SILVER.GetId();
+  }),1);
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDrawPile(),[](const Card* c){
+    return c->GetId() == SILVER.GetId();
+  }),0);
+}
+
+void TestVassalTopCardIsActionCard(){
+  //Play or discard top of your deck
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Vassal");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&VASSAL);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(VASSAL.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&MILITIA);
+  std::vector<Action> legal_actions = {MILITIA.GetPlay(),MILITIA.GetDiscard()};
+  SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
+  state.DoApplyAction(MILITIA.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  // opponents need to discard down to 3 cards
+  for(int i = 0; i < 3; i++){
+    state.DoApplyAction(state.LegalActions().front());
+  }
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),0);
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetCoins(),2);
+
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDiscardPile(),[](const Card* c){
+    return c->GetId() == MILITIA.GetId();
+  }),0);
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetDrawPile(),[](const Card* c){
+    return c->GetId() == MILITIA.GetId();
+  }),0);
+}
+
+void TestCouncilRoom(){
+  //+4 Cards, +1 Buy, Each other play draws a card.
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Council Room");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&COUNCIL_ROOM);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(COUNCIL_ROOM.GetPlay());
+  SPIEL_CHECK_TRUE(state.IsChanceNode());
+  while(state.IsChanceNode()){
+       Action outcome =
+          SampleAction(state.ChanceOutcomes(),
+                       std::uniform_real_distribution<double>(0.0, 1.0)(rng))
+              .first;
+    state.DoApplyAction(outcome);
+  }
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetBuys(),2);
+  SPIEL_CHECK_EQ(state.GetCurrentPlayerState().GetHand().size(),8);
+  SPIEL_CHECK_EQ(state.GetPlayerState(1).GetHand().size(),6);
+}
+
+void TestArtisan(){
+  // Gain a card to your hand costing up to 5 coins
+  std::mt19937 rng;
+  std::shared_ptr<const Game> game = LoadGame("dominion");
+  DominionState state(game,"Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Moneylender;Artisan");
+  while(state.IsChanceNode()){
+    Action outcome = state.ChanceOutcomes().front().first;
+    state.DoApplyAction(outcome);
+  }
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.GetCurrentPlayerState().AddFrontToDrawPile(&ARTISAN);
+  state.DoApplyAction(END_PHASE_ACTION);
+  SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
+  state.DoApplyAction(END_PHASE_ACTION);
+  state.DoApplyAction(END_PHASE_ACTION);
+
+  state.DoApplyAction(ARTISAN.GetPlay());
+  SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
+  state.DoApplyAction(MILITIA.GetGain());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetHand(),[](const Card* c){
+    return c->GetId() == MILITIA.GetId();
+  }),1);
+  state.DoApplyAction(MILITIA.GetPlaceOntoDeck());
+  SPIEL_CHECK_EQ(absl::c_count_if(state.GetPlayerState(0).GetHand(),[](const Card* c){
+    return c->GetId() == MILITIA.GetId();
+  }),0);
+  SPIEL_CHECK_EQ(state.GetPlayerState(0).GetDrawPile().front()->GetId(),MILITIA.GetId());
+  SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
+}
+
+
 }//namespace action_card_tests
 }  // namespace dominion
 }  // namespace open_spiel
@@ -687,5 +1089,17 @@ int main(int argc, char** argv) {
   open_spiel::dominion::action_card_tests::TestWitchOpponentRevealsMoat();
   open_spiel::dominion::action_card_tests::TestWitchOpponentChoosesNotToRevealMoat();
   open_spiel::dominion::action_card_tests::TestWorkshop();
-
+  // open_spiel::dominion::action_card_tests::TestBanditNoCardsToTrash();
+  open_spiel::dominion::action_card_tests::TestBanditHasTwoCardsToSelectToTrash();
+  open_spiel::dominion::action_card_tests::TestRemodel();
+  open_spiel::dominion::action_card_tests::TestMoneyLenderTrashCopper();
+  open_spiel::dominion::action_card_tests::TestMoneyLenderDoNotTrashCopper();
+  open_spiel::dominion::action_card_tests::testPoacherNoEmptyPiles();
+  open_spiel::dominion::action_card_tests::testPoacherEmptyPiles();
+  open_spiel::dominion::action_card_tests::TestMineDoNotTrash();
+  open_spiel::dominion::action_card_tests::TestMineTrashTreasureCard();
+  open_spiel::dominion::action_card_tests::TestVassalTopCardIsNotActionCard();
+  open_spiel::dominion::action_card_tests::TestVassalTopCardIsActionCard();
+  open_spiel::dominion::action_card_tests::TestCouncilRoom();
+  open_spiel::dominion::action_card_tests::TestArtisan();
 }

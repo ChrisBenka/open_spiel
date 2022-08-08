@@ -79,6 +79,7 @@ Card::Card(int id, std::string name, int cost)
   discard_ = 4 * kNumCards + id;
   gain_ = 5 * kNumCards + id;
   reveal_ = 6 * kNumCards + id;
+  place_onto_deck_ = 7 * kNumCards + id;
   cost_ = cost;
   action_strs_ = {
     {play_, "Play"},
@@ -86,7 +87,8 @@ Card::Card(int id, std::string name, int cost)
     {trash_, "Trash"},
     {discard_, "Discard"},
     {gain_, "Gain"},
-    {reveal_, "Reveal"}
+    {reveal_, "Reveal"},
+    {place_onto_deck_, "Place card onto top of deck"}
   };
 }
 
@@ -101,6 +103,16 @@ void PlayerState::DrawHand(int num_cards){
   }
 }
 
+bool PlayerState::HasTreasureCardInHand() const {
+  return absl::c_count_if(hand_,[](const Card* card){
+    return card->getCardType() == TREASURE;
+  }) >= 1;
+}
+
+const Card* PlayerState::TopOfDeck() const{
+  return draw_pile_.front();
+}
+
 bool PlayerState::HasCardInHand(const Card* card) const {
   return absl::c_find_if(hand_,[card](const Card* c){
     return c->GetId() == card->GetId();
@@ -109,13 +121,13 @@ bool PlayerState::HasCardInHand(const Card* card) const {
 
 void PlayerState::PlayTreasureCard(const Card* card){
   addCoins(card->GetCoins());
-  cards_in_play_.push_back(card);
+  AddToPile(card,IN_PLAY);
   RemoveFromPile(card,HAND);
 }
 
-void PlayerState::PlayActionCard(DominionState& state, const Card* card){
-  cards_in_play_.push_back(card);
-  RemoveFromPile(card,HAND);
+void PlayerState::PlayActionCard(DominionState& state, const Card* card, PileType source = HAND){
+  AddToPile(card,IN_PLAY);
+  RemoveFromPile(card,source);
   actions_ -= 1;
   actions_ += card->GetAddActions();
   buys_ += card->GetAddBuys();
@@ -147,7 +159,7 @@ void PlayerState::BuyCard(const Card* card){
 void PlayerState::RemoveFromPile(const Card* card, PileType pile){
   std::list<const Card*>& cards_ = pile == DISCARD ? 
     discard_pile_ :  pile == DRAW ? draw_pile_ :
-    pile == HAND ? hand_ : trash_pile_;
+    pile == HAND ? hand_ : pile == IN_PLAY ? cards_in_play_ : trash_pile_;
   auto it = absl::c_find_if(cards_,[card](const Card* c){
     return card->GetId() == c->GetId(); 
   });
@@ -157,7 +169,7 @@ void PlayerState::RemoveFromPile(const Card* card, PileType pile){
 void PlayerState::AddToPile(const Card* card, PileType pile){
   std::list<const Card*>& cards_ = pile == DISCARD ? 
     discard_pile_ :  pile == DRAW ? draw_pile_ :
-    pile == HAND ? hand_ : trash_pile_;
+    pile == HAND ? hand_ : pile == IN_PLAY ? cards_in_play_ : trash_pile_;
     cards_.push_back(card);
 }
 
@@ -511,8 +523,15 @@ void DominionState::DoApplyAddDiscardPileToDrawPile(Action action_id){
   player_itr->AddToPile(card,DRAW);
   bool discard_pile_empty = player_itr->GetDiscardPile().empty();
   player_itr->SetAddDiscardPileToDrawPile(!discard_pile_empty);
-  if(discard_pile_empty){
-      player_itr->DrawHand(player_itr->GetNumRequiredCards());
+  if(discard_pile_empty && (!effect_runner_->Active())){
+    player_itr->DrawHand(player_itr->GetNumRequiredCards());
+  }
+  else if(discard_pile_empty && effect_runner_->Active() && effect_runner_->CurrentEffect()->GetId() != TRASH_TOP_TWO.GetId()){
+    player_itr->DrawHand(player_itr->GetNumRequiredCards());
+  }
+  else if(discard_pile_empty && effect_runner_->Active() && effect_runner_->CurrentEffect()->GetId() == TRASH_TOP_TWO.GetId()){
+    PlayerState& player = players_[effect_runner_->CurrentPlayer()];
+    effect_runner_->CurrentEffect()->DoPostApplyChanceOutcomeAction(*this,player);
   }
 }
 
