@@ -34,9 +34,13 @@ namespace dominion {
 // Constants.
 inline constexpr int kNumPlayers = 2;
 inline constexpr int kInitSupply = 10;
+inline constexpr int kKingdomCards = 10;
+inline constexpr int kTreasureCards = 3;
+inline constexpr int kVictoryCards = 4;
 inline constexpr int kInitCoppers = 7;
 inline constexpr int kInitEstates = 3;
 inline constexpr int kNumCards = 33;
+inline constexpr int kCardsInPlay = kTreasureCards + kVictoryCards + kKingdomCards;
 inline constexpr int kHandSize = 5;
 inline constexpr int kGardenSupply = 8;
 inline constexpr const char* kDefaultKingdomCards = "Village;Laboratory;Festival;Market;Smithy;Militia;Gardens;Chapel;Witch;Workshop";
@@ -48,6 +52,7 @@ const enum PileType { HAND = 1, DRAW = 2, DISCARD = 3, TRASH = 4, IN_PLAY = 5 };
 class Effect;
 class EffectRunner;
 class DominionState;
+class DominionObserver;
 
 
 class Card {
@@ -145,6 +150,8 @@ class SupplyPile {
 
 enum TurnPhase {ActionPhase, TreasurePhase, BuyPhase, EndTurn };
 constexpr char * TurnPhaseStrings[] = { "Action Phase", "Treasue Phase", "Buy Phase", "End Turn Phase"};
+constexpr char * SupplyPileStrings[] = { "TreasureSupply", "VictorySupply", "KingdomSuppply"};
+constexpr char * PileStrings[] = { "Hand", "Draw", "Discard","Trash","InPlay"};
 
 class PlayerState {
   public:
@@ -156,6 +163,7 @@ class PlayerState {
     std::list<const Card*> GetDiscardPile() const { return discard_pile_; }
     std::list<const Card*> GetHand() const {return hand_;};
     std::list<const Card*> GetTrashPile() const {return trash_pile_;};
+    std::list<const Card*> GetPile(PileType pile) const;
     bool GetAddDiscardPileToDrawPile() const { return add_discard_pile_to_draw_pile_;}; 
     void SetAddDiscardPileToDrawPile(bool add_to_draw){add_discard_pile_to_draw_pile_ = add_to_draw;};
     void SetNumRequiredCards(int num) {num_required_cards_ = num;};
@@ -220,6 +228,8 @@ class DominionState : public State {
   std::map<std::string,SupplyPile>& getSupplyPiles() {return supply_piles_;}
   void RemoveCardFromSupplyPile(std::string name) {supply_piles_.at(name).RemoveCardFromSupplyPile();}
   std::vector<PlayerState>&  getPlayers()  {return players_;}
+  std::vector<PlayerState>  GetPlayers() const  {return players_;}
+
   PlayerState& GetCurrentPlayerState() {return players_.at(current_player_);};
   const PlayerState& GetPlayerState(Player id) const {return players_.at(id);};
   std::vector<std::string> GetKingdomCards()const {return kingdom_cards_;};
@@ -241,6 +251,7 @@ class DominionState : public State {
   void DoApplyChanceAction(Action action_id);
   Player CurrentEffectPlayer() const;
 
+  friend class DominionObserver;
   std::vector<std::string> kingdom_cards_;
   Player current_player_ = 0;        
   std::map<std::string,SupplyPile> supply_piles_;
@@ -525,11 +536,15 @@ class DominionGame : public Game {
   double MinUtility() const override { return -1; }
   double UtilitySum() const override { return 0; }
   double MaxUtility() const override { return 1; }
-  std::vector<int> ObservationTensorShape() const override {
-    return {0, 0, 0};
-  }
+  std::vector<int> ObservationTensorShape() const;
   int MaxGameLength() const override { return 2000; }
+
+  std::shared_ptr<Observer> MakeObserver(
+    absl::optional<IIGObservationType> iig_obs_type,
+    const GameParameters& params
+  ) const;
   std::string kingdom_cards_;
+  std::shared_ptr<DominionObserver> default_observer_;
 };
 
 
@@ -538,15 +553,14 @@ inline int GardensVpFn(std::list<const Card*> cards)  {
 }
 
 
+const TreasureCard COPPER(1,"Copper",0,1);
+const TreasureCard SILVER(2,"Silver",3,2);
+const TreasureCard GOLD(3,"Gold",6,2);
 
-const TreasureCard COPPER(0,"Copper",0,1);
-const TreasureCard SILVER(1,"Silver",3,2);
-const TreasureCard GOLD(2,"Gold",6,2);
-
-const VictoryCard CURSE(3,"Curse",6,-1);
-const VictoryCard ESTATE(4,"Estate",2,1);
-const VictoryCard DUCHY(5,"Duchy",5,3);
-const VictoryCard PROVINCE(6,"Province",8,6);
+const VictoryCard CURSE(4,"Curse",6,-1);
+const VictoryCard ESTATE(5,"Estate",2,1);
+const VictoryCard DUCHY(6,"Duchy",5,3);
+const VictoryCard PROVINCE(7,"Province",8,6);
 
 inline CellarEffect CELLAR_EFFECT(11,"Discard any number of cards, then draw that many.");
 inline TrashCardsEffect CHAPEL_EFFECT(1,"Trash up to 4 cards",4);
@@ -567,34 +581,34 @@ inline DrawCardsEffect COUNCIL_ROOM_EFFECT(15,"Each other player draws a card",1
 inline ArtisanEffect ARTISAN_EFFECT(16,"Gain a card to your hand costing up to 5 coins. Put a card from your hand onto your deck.",5);
 
 
-const ActionCard VILLAGE(7,"Village",3,2,0,0,1);
-const ActionCard LABORATORY(8,"Laboratory",5,1,0,0,2);
-const ActionCard FESTIVAL(9,"Festival",5,2,1,2,0);
-const ActionCard MARKET(10,"Market",5,1,1,1,1);
-const ActionCard SMITHY(11,"Smithy",4,0,0,0,3);
-const ActionCard MILITIA(12,"Militia",4,0,0,0,0,&MILITIA_EFFECT);
-const VictoryCard GARDENS(13,"Gardens",4,0,GardensVpFn);
-const ActionCard CHAPEL(14,"Chapel",2,0,0,0,0,&CHAPEL_EFFECT);
-const ActionCard WITCH(15,"Witch",5,0,0,0,2,&WITCH_EFFECT);
-const ActionCard WORKSHOP(16,"Workshop",3,0,0,0,0,&WORKSHOP_EFFECT);
-const ActionCard BANDIT(17,"Bandit",5,0,0,0,0,&BANDIT_EFFECT);
-const ActionCard REMODEL(18,"Remodel",4,0,0,0,0,&REMODEL_EFFECT);
-const ActionCard THRONE_ROOM(19,"Throne Room",4,0,0,0,0);
-const ActionCard MONEYLENDER(20,"Moneylender",4,0,0,0,0,&MONEYLENDER_EFFECT);
-const ActionCard POACHER(21,"Poacher",4,1,0,1,1,&POACHER_EFFECT);
-const ActionCard MERCHANT(22,"Merchant",3,1,0,0,1);
-const ActionCard CELLAR(23,"Cellar",2,1,0,0,0,&CELLAR_EFFECT);
-const ActionCard MINE(24,"Mine",5,0,0,0,0,&MINE_EFFECT);
-const ActionCard VASSAL(25,"Vassal",3,0,0,2,0,&VASSAL_EFFECT);
-const ActionCard COUNCIL_ROOM(26,"Council Room",5,0,1,0,4,&COUNCIL_ROOM_EFFECT);
-const ActionCard ARTISAN(27,"Artisan",6,0,0,0,0,&ARTISAN_EFFECT);
-const ActionCard BUREAUCRAT(28,"Bureaucrat",4);
-const ActionCard SENTRY(29,"Sentry",5,1,0,0,1);
-const ActionCard HARBINGER(30,"Harbinger",3,1,0,0,1);
-const ActionCard LIBRARY(31,"Library",5,0,0,0,0);
-const ActionCard MOAT(32,"Moat",2,0,0,0,2);
+const ActionCard VILLAGE(8,"Village",3,2,0,0,1);
+const ActionCard LABORATORY(9,"Laboratory",5,1,0,0,2);
+const ActionCard FESTIVAL(10,"Festival",5,2,1,2,0);
+const ActionCard MARKET(11,"Market",5,1,1,1,1);
+const ActionCard SMITHY(12,"Smithy",4,0,0,0,3);
+const ActionCard MILITIA(13,"Militia",4,0,0,0,0,&MILITIA_EFFECT);
+const VictoryCard GARDENS(14,"Gardens",4,0,GardensVpFn);
+const ActionCard CHAPEL(15,"Chapel",2,0,0,0,0,&CHAPEL_EFFECT);
+const ActionCard WITCH(16,"Witch",5,0,0,0,2,&WITCH_EFFECT);
+const ActionCard WORKSHOP(17,"Workshop",3,0,0,0,0,&WORKSHOP_EFFECT);
+const ActionCard BANDIT(18,"Bandit",5,0,0,0,0,&BANDIT_EFFECT);
+const ActionCard REMODEL(19,"Remodel",4,0,0,0,0,&REMODEL_EFFECT);
+const ActionCard THRONE_ROOM(20,"Throne Room",4,0,0,0,0);
+const ActionCard MONEYLENDER(21,"Moneylender",4,0,0,0,0,&MONEYLENDER_EFFECT);
+const ActionCard POACHER(22,"Poacher",4,1,0,1,1,&POACHER_EFFECT);
+const ActionCard MERCHANT(23,"Merchant",3,1,0,0,1);
+const ActionCard CELLAR(24,"Cellar",2,1,0,0,0,&CELLAR_EFFECT);
+const ActionCard MINE(25,"Mine",5,0,0,0,0,&MINE_EFFECT);
+const ActionCard VASSAL(26,"Vassal",3,0,0,2,0,&VASSAL_EFFECT);
+const ActionCard COUNCIL_ROOM(27,"Council Room",5,0,1,0,4,&COUNCIL_ROOM_EFFECT);
+const ActionCard ARTISAN(28,"Artisan",6,0,0,0,0,&ARTISAN_EFFECT);
+const ActionCard BUREAUCRAT(29,"Bureaucrat",4);
+const ActionCard SENTRY(30,"Sentry",5,1,0,0,1);
+const ActionCard HARBINGER(31,"Harbinger",3,1,0,0,1);
+const ActionCard LIBRARY(32,"Library",5,0,0,0,0);
+const ActionCard MOAT(33,"Moat",2,0,0,0,2);
 
-inline constexpr Action END_PHASE_ACTION = 167;
+inline constexpr Action END_PHASE_ACTION = 0;
 
 const std::vector<const Card*> all_cards = {&COPPER,&SILVER,&GOLD,&CURSE,&ESTATE,&DUCHY,&PROVINCE,&VILLAGE,
 &LABORATORY,&FESTIVAL,&MARKET,&SMITHY,&MILITIA,&GARDENS,&CHAPEL,&WITCH,&WORKSHOP,&BANDIT,
@@ -602,7 +616,7 @@ const std::vector<const Card*> all_cards = {&COPPER,&SILVER,&GOLD,&CURSE,&ESTATE
 &ARTISAN,&BUREAUCRAT,&SENTRY,&HARBINGER,&LIBRARY,&MOAT};
 
 inline const Card* GetCard(Action action_id) {
-  return all_cards.at(action_id % all_cards.size());
+  return all_cards.at((action_id - 1) % all_cards.size());
 }
 
 }  // namespace dominion

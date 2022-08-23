@@ -109,7 +109,7 @@ void OpponentsDiscardDownToEffect::Run(DominionState& state, PlayerState& player
 }
 
 std::vector<Action> OpponentsDiscardDownToEffect::LegalActions(const DominionState& state, const PlayerState& PlayerState) const {
-	return {MOAT.GetPlay(),END_PHASE_ACTION};
+	return {END_PHASE_ACTION,MOAT.GetPlay()};
 }
 
 void OpponentsDiscardDownToEffect::DoApplyAction(Action action, DominionState& state, PlayerState& player) {

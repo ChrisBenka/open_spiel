@@ -69,6 +69,14 @@ const char* GetTurnPhaseStrings(int enumVal){
   return TurnPhaseStrings[enumVal];
 }
 
+const char* GetSuplyPileStrings(int enumVal){
+  return SupplyPileStrings[enumVal];
+}
+
+const char* GetPileStrings(int enumVal){
+  return PileStrings[enumVal];
+}
+
 Card::Card(int id, std::string name, int cost)
 {
   id_ = id;
@@ -90,6 +98,11 @@ Card::Card(int id, std::string name, int cost)
     {reveal_, "Reveal"},
     {place_onto_deck_, "Place card onto top of deck"}
   };
+}
+
+std::list<const Card*> PlayerState::GetPile(PileType pile) const {
+  return pile == DISCARD ? discard_pile_ :  pile == DRAW ? draw_pile_ :
+    pile == HAND ? hand_ : pile == IN_PLAY ? cards_in_play_ : trash_pile_;
 }
 
 void PlayerState::DrawHand(int num_cards){
@@ -577,12 +590,6 @@ std::string DominionState::ObservationString(Player player) const {
   return ToString();
 }
 
-void DominionState::ObservationTensor(Player player,
-                                       absl::Span<float> values) const {
-  SPIEL_CHECK_GE(player, 0);
-  SPIEL_CHECK_LT(player, num_players_);
-}
-
 void DominionState::UndoAction(Player player, Action move) {
 }
 
@@ -590,8 +597,208 @@ std::unique_ptr<State> DominionState::Clone() const {
   return std::unique_ptr<State>(new DominionState(*this));
 }
 
+std::vector<int> DominionGame::ObservationTensorShape() const {
+  return {
+    kNumCards // Cards In Play
+    +
+    kTreasureCards // Treasure Supply
+    +
+    kVictoryCards // Victory Supply
+    +
+    kKingdomCards // Kingdom Supply
+    + 
+    4 // Turn Phase, Actions, Buys, Coins
+    +
+    1 //effect
+    +
+    +kHandSize // hand
+    +
+    kCardsInPlay * 3 // player's draw, discard, trash
+    + 
+    kCardsInPlay * 2 // opponents discard/draw pile and trash piles
+  };
+}
+
+class DominionObserver : public Observer {
+  public:
+    explicit DominionObserver(IIGObservationType iig_obs_type, const GameParameters& params) : Observer(/*has_string=*/true, /*has_tensor=*/true),
+    iig_obs_type_(iig_obs_type), game_params_(params) {}
+
+    void WriteSupplyPile(const DominionState& state,Allocator* allocator,CardType cardType) const {
+      std::vector<SupplyPile> supply_piles;
+      int size = cardType == TREASURE ? kTreasureCards : cardType == VICTORY ? kVictoryCards : kKingdomCards;
+      absl::c_for_each(state.getSupplyPiles(),[&supply_piles,cardType](std::pair<std::string,SupplyPile> pile_pair){
+        if(pile_pair.second.getCard()->GetId() == GARDENS.GetId()){
+          if(cardType == ACTION){
+            supply_piles.push_back(pile_pair.second);
+          }
+        }
+        else if(pile_pair.second.getCard()->getCardType() == cardType){
+          supply_piles.push_back(pile_pair.second);
+        }
+      });
+      absl::c_sort(supply_piles,[](SupplyPile pile1, SupplyPile pile2){
+        return pile1.getCard()->GetId() < pile2.getCard()->GetId();
+      });
+      auto out = allocator->Get(GetSuplyPileStrings(cardType),{size});
+      SPIEL_DCHECK_EQ(supply_piles.size(),size);
+      for(int i = 0; i < supply_piles.size(); i++){
+        out.at(i) = supply_piles.at(i).getQty();
+      }
+    }
+
+    void WriteSupplyPiles(const DominionState& state,Allocator* allocator) const {
+      WriteSupplyPile(state,allocator,TREASURE);
+      WriteSupplyPile(state,allocator,VICTORY);
+      WriteSupplyPile(state,allocator,ACTION);
+    }
+
+    void WritePlayerPile(const DominionState& state, int player ,Allocator* allocator, PileType pileType, std::vector<int> cards_in_play) const {
+      int size = pileType == HAND ? kHandSize : kCardsInPlay;
+      std::vector<int> cards;
+      absl::c_for_each(state.GetPlayerState(player).GetPile(pileType),[&cards](const Card* c){
+        cards.push_back(c->GetId());
+      });
+      absl::c_sort(cards);
+      std::string title;
+      if(player != state.current_player_){
+        absl::StrAppend(&title,"Opp",GetPileStrings(pileType));
+      }else{
+        title = GetPileStrings(pileType);
+      }
+      auto out = allocator->Get(title,{size});
+      if(pileType == HAND){
+        for(int i = 0; i < size; i++){
+          out.at(i) = i >= cards.size() ? -1 : cards.at(i);
+        }
+      }else{
+        std::vector<int> counts(kNumCards,0);
+        for(int card: cards){
+          counts[card] += 1;
+        }
+        int j = 0;
+        for(int i = 0; i < kNumCards && j < kCardsInPlay; i++){
+          if(cards_in_play.at(i) == 1){
+            out.at(j) = counts[i];
+            j += 1;
+          }
+        }
+      }
+    }
+
+    std::vector<int> GetCardCounts(const DominionState& state, int player, PileType pileType, std::vector<int> cards_in_play) const {
+      std::vector<int> cards;
+      absl::c_for_each(state.GetPlayerState(player).GetPile(pileType),[&cards](const Card* c){
+        cards.push_back(c->GetId());
+      });
+      absl::c_sort(cards);
+      std::vector<int> counts(kNumCards,0);
+      for(int card: cards){
+        counts[card] += 1;
+      }
+      std::vector<int> cards_in_play_counts(kCardsInPlay,0);
+      int j = 0;
+      for(int i = 0; i < kNumCards; i++){
+        if(cards_in_play.at(i) == 1){
+          cards_in_play_counts.at(j) = counts[i];
+          j += 1;
+        }
+      }
+      return cards_in_play_counts;
+    }
+
+    std::vector<int> WriteCardsInPlay(const DominionState& state, Allocator* allocator) const {
+      auto out = allocator->Get("CardsInPlay",{kNumCards});
+      std::vector<int> cards_in_play(kNumCards,0);
+      absl::c_for_each(state.getSupplyPiles(),[&out,&cards_in_play](std::pair<std::string,SupplyPile> pile_pair){
+        const Card* c = pile_pair.second.getCard();
+        cards_in_play[c->GetId()] = 1;
+        out.at(c->GetId()-1) = 1;
+      });
+      return cards_in_play;
+    }
+
+    void WritePlayerPiles(const DominionState& state,int player, Allocator* allocator,std::vector<int> cards_in_play) const {
+      WritePlayerPile(state,player,allocator,HAND,cards_in_play);
+      WritePlayerPile(state,player,allocator,DRAW,cards_in_play);
+      WritePlayerPile(state,player,allocator,DISCARD,cards_in_play);
+      WritePlayerPile(state,player,allocator,TRASH,cards_in_play);
+      // WritePlayerPile(state,player,allocator,IN_PLAY,cards_in_play);
+    }
+
+    void WriteOpponentsPlayableCards(const DominionState& state,int player, Allocator* allocator,std::vector<int> cards_in_play) const {
+      std::vector<int> a = GetCardCounts(state,player,DRAW,cards_in_play);
+      std::vector<int> b = GetCardCounts(state,player,DISCARD,cards_in_play);
+      std::vector<int> c = GetCardCounts(state,player,HAND,cards_in_play);
+      std::transform(a.begin(),a.end(),b.begin(),a.begin(),std::plus<int>());
+      std::transform(a.begin(),a.end(),c.begin(),a.begin(),std::plus<int>());
+      auto out = allocator->Get("OppCards",{kCardsInPlay});
+      for(int i =0; i < kCardsInPlay; i++){
+        out.at(i) = a.at(i);
+      }
+    }
+
+    void WriteEffect(const DominionState& state, Allocator* allocator) const {
+      const Effect* active_effect = state.GetEffectRunner()->CurrentEffect();
+      auto out = allocator->Get("Effect",{1});
+      out.at(0) = active_effect ==  nullptr ? -1 : active_effect->GetId();
+    }
+
+    void WriteTensor(const State& observed_state, int player, Allocator* allocator) const override {
+      const DominionState& state = open_spiel::down_cast<const DominionState&>(observed_state);
+      SPIEL_CHECK_GE(player,0);
+      SPIEL_CHECK_LT(player,kNumPlayers);
+      std::vector<int> cards_in_play = WriteCardsInPlay(state,allocator);
+      WriteSupplyPiles(state,allocator);
+      WritePlayerPhaseABC(state,player,allocator);
+      WriteEffect(state,allocator);
+      WritePlayerPiles(state,player,allocator,cards_in_play);
+      for (PlayerState& p : state.GetPlayers()){
+        if(p.GetId() != player){
+          WriteOpponentsPlayableCards(state,p.GetId(),allocator,cards_in_play);
+          WritePlayerPile(state,player,allocator,TRASH,cards_in_play);
+        }
+      }
+    }
+
+    void WritePlayerPhaseABC(const DominionState& state, int player, Allocator* allocator) const {
+      auto out = allocator->Get("Phase",{1});
+      out.at(0) = state.GetPlayerState(player).GetTurnPhase();
+      out = allocator->Get("Actions",{1});
+      out.at(0) = state.GetPlayerState(player).GetActions();
+      out = allocator->Get("Buys",{1});
+      out.at(0) = state.GetPlayerState(player).GetBuys();
+      out = allocator->Get("Coins",{1});
+      out.at(0) = state.GetPlayerState(player).GetCoins();
+    }
+
+    std::string StringFrom(const State& observed_state, int player) const override {
+      return "";
+    }
+  private:
+    IIGObservationType iig_obs_type_;
+    const GameParameters& game_params_;
+};
+
+std::shared_ptr<Observer> DominionGame::MakeObserver(
+    absl::optional<IIGObservationType> iig_obs_type,
+    const GameParameters& params) const {
+  if (!params.empty()) SpielFatalError("Observation params not supported");
+  return std::make_shared<DominionObserver>(iig_obs_type.value_or(kDefaultObsType),params);
+}
+
+void DominionState::ObservationTensor(Player player,
+                                       absl::Span<float> values) const {
+  ContiguousAllocator allocator(values);
+  const DominionGame& game = open_spiel::down_cast<const DominionGame&>(*game_);
+  game.default_observer_->WriteTensor(*this,player,&allocator);
+}
+
+
 DominionGame::DominionGame(const GameParameters& params)
-    : Game(kGameType, params), kingdom_cards_(ParameterValue<std::string>("kingdom_cards")) {}
+    : Game(kGameType, params), kingdom_cards_(ParameterValue<std::string>("kingdom_cards")) {
+  default_observer_ = std::make_shared<DominionObserver>(kDefaultObsType,params);
+}
 
 }  // namespace dominion
 }  // namespace open_spiel

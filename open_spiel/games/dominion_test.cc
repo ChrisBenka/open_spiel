@@ -73,7 +73,7 @@ void PlayTreasureCard() {
       state.DoApplyAction(ESTATE.GetId());
     }
   }
-  std::vector<Action> expected_actions{COPPER.GetPlay(),END_PHASE_ACTION};
+  std::vector<Action> expected_actions{END_PHASE_ACTION,COPPER.GetPlay()};
   SPIEL_CHECK_EQ(state.LegalActions(),expected_actions);
   for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
     state.DoApplyAction(action);
@@ -99,7 +99,7 @@ void BuyTreasureCard() {
   for (Action action : {COPPER.GetPlay(),COPPER.GetPlay(),COPPER.GetPlay(),END_PHASE_ACTION}){
     state.DoApplyAction(action);
   }
-  std::vector<Action> expected_actions{66,67,70,73,80,82,167};
+  std::vector<Action> expected_actions{0,67,68,71,74,81,83};
   SPIEL_CHECK_EQ(state.GetPlayerState(0).GetCoins(),3);
   SPIEL_CHECK_EQ(state.LegalActions(),expected_actions);
   state.DoApplyAction(SILVER.GetBuy());
@@ -397,7 +397,7 @@ void TestMilitiaOpponentRevealsMoat(){
   state.DoApplyAction(MILITIA.GetPlay());
   SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
   SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
-  std::vector<Action> moves = {MOAT.GetPlay(),END_PHASE_ACTION};
+  std::vector<Action> moves = {END_PHASE_ACTION,MOAT.GetPlay()};
   SPIEL_CHECK_EQ(state.LegalActions(),moves);
   state.DoApplyAction(MOAT.GetPlay());
   SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
@@ -423,7 +423,7 @@ void TestMilitiaOpponentChoosesNotToRevealMoat(){
   state.DoApplyAction(MILITIA.GetPlay());
   SPIEL_CHECK_EQ(state.CurrentPlayer(),1);
   SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
-  std::vector<Action> moves = {MOAT.GetPlay(),END_PHASE_ACTION};
+  std::vector<Action> moves = {END_PHASE_ACTION,MOAT.GetPlay()};
   SPIEL_CHECK_EQ(state.LegalActions(),moves);
   state.DoApplyAction(END_PHASE_ACTION);
   SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
@@ -892,7 +892,7 @@ void TestMineDoNotTrash(){
 
   state.DoApplyAction(MINE.GetPlay());
   SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
-  std::vector<Action> legal_actions = {COPPER.GetTrash(),END_PHASE_ACTION};
+  std::vector<Action> legal_actions = {END_PHASE_ACTION,COPPER.GetTrash()};
   SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
   state.DoApplyAction(END_PHASE_ACTION);
   SPIEL_CHECK_FALSE(state.GetEffectRunner()->Active());
@@ -915,7 +915,7 @@ void TestMineTrashTreasureCard(){
 
   state.DoApplyAction(MINE.GetPlay());
   SPIEL_CHECK_TRUE(state.GetEffectRunner()->Active());
-  std::vector<Action> legal_actions = {COPPER.GetTrash(),END_PHASE_ACTION};
+  std::vector<Action> legal_actions = {END_PHASE_ACTION,COPPER.GetTrash()};
   SPIEL_CHECK_EQ(state.LegalActions(),legal_actions);
   state.DoApplyAction(COPPER.GetTrash());
   legal_actions = {COPPER.GetGain(),SILVER.GetGain()};     
@@ -1061,6 +1061,37 @@ void TestArtisan(){
 
 
 }//namespace action_card_tests
+
+namespace observer {
+  void ObservationTensor(){
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion",params);
+    std::unique_ptr<State> state = game->NewInitialState();
+    while(state->IsChanceNode()){
+      Action outcome = state->ChanceOutcomes().front().first;
+      state->ApplyAction(outcome);
+    }
+    std::vector<float> obs = state->ObservationTensor();
+    std::vector<float> expected = {
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+      46, 40, 30, // Treasure Supply
+      10, 8, 8, 8, // Victory Supply
+      10, 10, 10, 10, 10, 10, 8, 10, 10, 10, // Kingdom Supply
+      1 ,1, 1, 0,  // TurnPhase + Player ABC
+      -1, //Effect
+      1, 1, 1, 1, 1, //hand
+      2, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // DRAW
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // DISCARD
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // TRASH
+      7, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Opponents Playable cards
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 //  Opponents Trashed cards
+    };
+    // 
+    SPIEL_CHECK_EQ(obs,expected);
+  }
+}
+
+
 }  // namespace dominion
 }  // namespace open_spiel
 
@@ -1078,18 +1109,18 @@ int main(int argc, char** argv) {
   open_spiel::dominion::action_card_tests::TestLaboratory();
   open_spiel::dominion::action_card_tests::TestFestival();
   open_spiel::dominion::action_card_tests::TestMarket();
-  // open_spiel::dominion::action_card_tests::TestSmithy();
+  // // open_spiel::dominion::action_card_tests::TestSmithy();
   open_spiel::dominion::action_card_tests::TestMilitiaOpponentHasNoMoat();
   open_spiel::dominion::action_card_tests::TestMilitiaOpponentRevealsMoat();
   open_spiel::dominion::action_card_tests::TestMilitiaOpponentChoosesNotToRevealMoat();
   open_spiel::dominion::action_card_tests::TestGardens();
   open_spiel::dominion::action_card_tests::TestCellar();
-  open_spiel::dominion::action_card_tests::TestChapelTrashFourCards();
+  // open_spiel::dominion::action_card_tests::TestChapelTrashFourCards();
   open_spiel::dominion::action_card_tests::TestWitchOpponentHasNoMoat();
   open_spiel::dominion::action_card_tests::TestWitchOpponentRevealsMoat();
   open_spiel::dominion::action_card_tests::TestWitchOpponentChoosesNotToRevealMoat();
   open_spiel::dominion::action_card_tests::TestWorkshop();
-  // open_spiel::dominion::action_card_tests::TestBanditNoCardsToTrash();
+  // // open_spiel::dominion::action_card_tests::TestBanditNoCardsToTrash();
   open_spiel::dominion::action_card_tests::TestBanditHasTwoCardsToSelectToTrash();
   open_spiel::dominion::action_card_tests::TestRemodel();
   open_spiel::dominion::action_card_tests::TestMoneyLenderTrashCopper();
@@ -1102,4 +1133,5 @@ int main(int argc, char** argv) {
   open_spiel::dominion::action_card_tests::TestVassalTopCardIsActionCard();
   open_spiel::dominion::action_card_tests::TestCouncilRoom();
   open_spiel::dominion::action_card_tests::TestArtisan();
+  open_spiel::dominion::observer::ObservationTensor();
 }
