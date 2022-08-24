@@ -23,6 +23,7 @@ import pyspiel
 
 # Specify game names in alphabetical order, to make the test easier to read.
 EXPECTED_GAMES = frozenset([
+    "2048",
     "amazons",
     "backgammon",
     "bargaining",
@@ -33,6 +34,7 @@ EXPECTED_GAMES = frozenset([
     "bridge",
     "bridge_uncontested_bidding",
     "catch",
+    "checkers",
     "chess",
     "cliff_walking",
     "clobber",
@@ -83,6 +85,7 @@ EXPECTED_GAMES = frozenset([
     "morpion_solitaire",
     "negotiation",
     "nfg_game",
+    "nim",
     "normal_form_extensive_game",
     "oh_hell",
     "oshi_zumo",
@@ -90,6 +93,7 @@ EXPECTED_GAMES = frozenset([
     "oware",
     "pentago",
     "pathfinding",
+    "phantom_go",
     "phantom_ttt",
     "phantom_ttt_ir",
     "pig",
