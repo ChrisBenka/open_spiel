@@ -619,6 +619,23 @@ inline const Card* GetCard(Action action_id) {
   return all_cards.at((action_id - 1) % all_cards.size());
 }
 
+struct DominionObservation {
+  std::vector<int> cards_in_play;
+  std::vector<int> treasure_supply;
+  std::vector<int> victory_supply;
+  std::vector<int> kingdom_supply;
+  int phase;
+  int actions;
+  int buys;
+  int coins;
+  int effect;
+  std::vector<int> hand;
+  std::vector<int> draw;
+  std::vector<int> discard;
+  std::vector<int> trash;
+
+};
+
 }  // namespace dominion
 }  // namespace open_spiel
 

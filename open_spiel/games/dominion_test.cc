@@ -1089,6 +1089,17 @@ namespace observer {
     // 
     SPIEL_CHECK_EQ(obs,expected);
   }
+  void ObservationString(){
+    std::mt19937 rng;
+    std::shared_ptr<const Game> game = LoadGame("dominion",params);
+    std::unique_ptr<State> state = game->NewInitialState();
+    while(state->IsChanceNode()){
+      Action outcome = state->ChanceOutcomes().front().first;
+      state->ApplyAction(outcome);
+    }
+    std::string obs_str = state->ObservationString();
+    SPIEL_CHECK_NE("",obs_str);
+  }
 }
 
 
@@ -1134,4 +1145,5 @@ int main(int argc, char** argv) {
   open_spiel::dominion::action_card_tests::TestCouncilRoom();
   open_spiel::dominion::action_card_tests::TestArtisan();
   open_spiel::dominion::observer::ObservationTensor();
+  open_spiel::dominion::observer::ObservationString();
 }
