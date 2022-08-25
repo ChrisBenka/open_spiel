@@ -1,4 +1,6 @@
 set(GAME_SOURCES
+  2048.cc
+  2048.h
   amazons.cc
   amazons.h
   backgammon.cc
@@ -23,6 +25,8 @@ set(GAME_SOURCES
   bridge_uncontested_bidding.h
   catch.cc
   catch.h
+  checkers.cc
+  checkers.h
   chess.cc
   chess.h
   chess/chess_board.cc
@@ -113,6 +117,8 @@ set(GAME_SOURCES
   negotiation.h
   nfg_game.cc
   nfg_game.h
+  nim.cc
+  nim.h
   oh_hell.cc
   oh_hell.h
   oshi_zumo.cc
@@ -127,6 +133,10 @@ set(GAME_SOURCES
   pathfinding.h
   pentago.cc
   pentago.h
+  phantom_go.h
+  phantom_go.cc
+  phantom_go/phantom_go_board.h
+  phantom_go/phantom_go_board.cc
   phantom_ttt.cc
   phantom_ttt.h
   pig.cc
@@ -250,6 +260,10 @@ add_library(bridge_double_dummy_solver OBJECT
 target_include_directories (bridge_double_dummy_solver PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(bridge_double_dummy_solver PUBLIC DDS_NO_STATIC_INIT)
 
+add_executable(2048_test 2048_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(2048_test 2048_test)
+
 add_executable(amazons_test amazons_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(amazons_test amazons_test)
@@ -287,6 +301,10 @@ add_test(bridge_test bridge_test)
 add_executable(catch_test catch_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(catch_test catch_test)
+
+add_executable(checkers_test checkers_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(checkers_test checkers_test)
 
 add_executable(chess_test chess_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
@@ -390,6 +408,10 @@ add_executable(go_test go_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(go_test go_test)
 
+add_executable(phantom_go_test phantom_go_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(phantom_go_test phantom_go_test)
+
 add_executable(goofspiel_test goofspiel_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(goofspiel_test goofspiel_test)
@@ -461,6 +483,10 @@ add_executable(nfg_game_test nfg_game_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>
                $<TARGET_OBJECTS:algorithms>)
 add_test(nfg_game_test nfg_game_test)
+
+add_executable(nim_test nim_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(nim_test nim_test)
 
 add_executable(oh_hell_test oh_hell_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)

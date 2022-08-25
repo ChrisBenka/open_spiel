@@ -196,6 +196,9 @@ set(PYTHON_TESTS ${PYTHON_TESTS}
   algorithms/projected_replicator_dynamics_test.py
   algorithms/random_agent_test.py
   algorithms/tabular_qlearner_test.py
+  algorithms/sequence_form_utils_test.py
+  algorithms/wolf_phc_test.py
+  algorithms/mmd_dilated_test.py
   bots/bluechip_bridge_test.py
   bots/bluechip_bridge_uncontested_bidding_test.py
   bots/is_mcts_test.py
@@ -240,6 +243,7 @@ if (OPEN_SPIEL_ENABLE_JAX)
     jax/deep_cfr_jax_test.py
     jax/dqn_jax_test.py
     jax/nfsp_jax_test.py
+    jax/policy_gradient_jax_test.py
     mfg/algorithms/fictitious_play_test.py
   )
 endif()
@@ -254,6 +258,7 @@ if (OPEN_SPIEL_ENABLE_PYTORCH)
       pytorch/eva_pytorch_test.py
       pytorch/losses/rl_losses_pytorch_test.py
       pytorch/policy_gradient_pytorch_test.py
+      pytorch/neurd_pytorch_test.py
   )
 endif()
 
