@@ -91,6 +91,8 @@ set(PYTHON_BINDINGS ${PYTHON_BINDINGS}
   pybind11/games_bridge.h
   pybind11/games_chess.cc
   pybind11/games_chess.h
+  pybind11/games_colored_trails.cc
+  pybind11/games_colored_trails.h
   pybind11/games_euchre.cc
   pybind11/games_euchre.h
   pybind11/games_kuhn_poker.cc
@@ -186,6 +188,7 @@ set(PYTHON_TESTS ${PYTHON_TESTS}
   algorithms/gambit_test.py
   algorithms/generate_playthrough_test.py
   algorithms/get_all_states_test.py
+  algorithms/ismcts_agent_test.py
   algorithms/mcts_agent_test.py
   algorithms/mcts_test.py
   algorithms/minimax_test.py
@@ -195,6 +198,7 @@ set(PYTHON_TESTS ${PYTHON_TESTS}
   algorithms/policy_aggregator_test.py
   algorithms/projected_replicator_dynamics_test.py
   algorithms/random_agent_test.py
+  algorithms/regret_matching_test.py
   algorithms/tabular_qlearner_test.py
   algorithms/sequence_form_utils_test.py
   algorithms/wolf_phc_test.py
