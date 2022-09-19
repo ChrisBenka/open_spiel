@@ -12,38 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef OPEN_SPIEL_BOTS_DOMINION_BIG_MONEY_BOT_H
-#define OPEN_SPIEL_BOTS_DOMINION_BIG_MONEY_BOT_H
+#ifndef OPEN_SPIEL_BOTS_DOMINION_H_
+#define OPEN_SPIEL_BOTS_DOMINION_H_
 
 #include <vector>
 
 #include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/games//dominion.h"
+#include "open_spiel/games/dominion.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_bots.h"
 
 namespace open_spiel {
- namespace dominion {
-  class BigMoneyBot: public Bot {
-   public:
+namespace dominion {
+namespace bots {
+class BigMoneyBot : public Bot {
+  public:
     BigMoneyBot(GameParameters params, const Player player_id, bool duchy_dancing) : 
      params_(params), player_id_(player_id), duchy_dancing_(duchy_dancing) {}
-    void Restart() override;
+    void Restart() {};
     Action Step(const State& state) override;
     bool ProvidesPolicy() override { return true; }
-    std::pair<ActionsAndProbs, Action> StepWithPolicy(const State& state) override;
     ActionsAndProbs GetPolicy(const State& state) override;
-   private:
-    Action play_first_treasure_card(const std::vector<int> hand) const;
-    Action purchase_treasure_card_if_avail(const TreasureCard card,const std::vector<int> treasure_supply) const;
-    Action is_penultimate_province(const std::vector<int> victorySupply) const;
+    std::pair<ActionsAndProbs, Action> StepWithPolicy(const State& state) override;
+  private:
+    Action PlayFirstTreasureCard(const std::vector<int> hand) const;
+    Action PurchaseTreasureCardIfAvail(const TreasureCard card,const std::vector<int> treasure_supply) const;
     DominionObservation GetObservation(const State& state) const;
     GameParameters params_;
     const Player player_id_;
-    bool duchy_dancing_;
-  };
- }
-}
+    bool duchy_dancing_;  
+};
+}  // namespace bots
+}  // namespace dominion
+}  // namespace open_spiel
 
+#endif  // OPEN_SPIEL_BOTS_DOMINION_H_
 
-#endif  // OPEN_SPIEL_BOTS_GIN_RUMMY_SIMPLE_GIN_RUMMY_BOT_H_
